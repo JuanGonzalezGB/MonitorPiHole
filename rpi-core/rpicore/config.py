@@ -48,3 +48,15 @@ COLOR_RED     = "#E24B4A"
 COLOR_BLUE    = "#378ADD"
 COLOR_AMBER   = "#EF9F27"
 COLOR_PURPLE  = "#7F77DD"'''
+
+
+COLOR_BG      = None
+COLOR_SURFACE = None
+COLOR_BORDER  = None
+COLOR_TEXT    = None
+COLOR_MUTED   = None
+COLOR_GREEN   = None
+COLOR_RED     = None
+COLOR_BLUE    = None
+COLOR_AMBER   = None
+COLOR_PURPLE  = None
