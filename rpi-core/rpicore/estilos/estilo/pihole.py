@@ -10,7 +10,7 @@ class PiholeColor(Estilo):
         self.border  = "#3a4844"
 
         # estados (basados en las tarjetas)
-        self.colorok   = "#27aea3"   # verde (Domains on Lists)
+        self.colorok   = "#27ae8c"   # verde (Domains on Lists)
         self.colormid  = "#c98c1a"   # amarillo (Percentage Blocked)
         self.colorbad  = "#cf2f1d"   # rojo (Blocked)
 
