@@ -25,9 +25,6 @@ from rpicore.config  import (
 import repository as repo
 
 
-# ─────────────────────────────────────────────────────────────
-# ScrollFrame reutilizable (mouse + touch drag)
-# ─────────────────────────────────────────────────────────────
 class ScrollFrame(tk.Frame):
     def __init__(self, parent, bg):
         super().__init__(parent, bg=bg)
@@ -46,12 +43,10 @@ class ScrollFrame(tk.Frame):
         self.inner.bind("<Configure>", self._on_configure)
         self.canvas.bind("<Configure>", self._on_canvas_configure)
 
-        # Mouse wheel (Linux/Windows)
         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
         self.canvas.bind_all("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))
         self.canvas.bind_all("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))
 
-        # Touch-like drag
         self.canvas.bind("<ButtonPress-1>", self._on_press)
         self.canvas.bind("<B1-Motion>", self._on_drag)
 
@@ -88,23 +83,18 @@ class PiholeMonitorApp(tk.Tk):
         self._build_ui()
         self._refresh()
 
-    # ─────────────────────────────────────────────────────────
-
     def _build_ui(self):
-        # TopBar
         self.topbar = TopBar(self, title="Pi-hole monitor")
         self.topbar.pack(fill="x", side="top")
-
         self._sep(self)
 
-        # Stats
         stats_row = tk.Frame(self, bg=COLOR_BG)
         stats_row.pack(fill="x", padx=4, pady=(4, 0))
 
-        self.card_queries  = StatCard(stats_row, label="QUERIES HOY",  color=COLOR_GREEN)
-        self.card_blocked  = StatCard(stats_row, label="BLOQUEADAS",   color=COLOR_RED)
-        self.card_percent  = StatCard(stats_row, label="% BLOQUEADO",  color=COLOR_AMBER)
-        self.card_domains  = StatCard(stats_row, label="LISTA",        color=COLOR_BLUE)
+        self.card_queries = StatCard(stats_row, label="QUERIES HOY",  color=COLOR_GREEN)
+        self.card_blocked = StatCard(stats_row, label="BLOQUEADAS",   color=COLOR_RED)
+        self.card_percent = StatCard(stats_row, label="% BLOQUEADO",  color=COLOR_AMBER)
+        self.card_domains = StatCard(stats_row, label="LISTA",        color=COLOR_BLUE)
 
         for card in (self.card_queries, self.card_blocked,
                      self.card_percent, self.card_domains):
@@ -112,7 +102,6 @@ class PiholeMonitorApp(tk.Tk):
 
         self._sep(self)
 
-        # ── FOOTER ─────────────────────────────────────────────
         bottom_bar = tk.Frame(self, bg=COLOR_BG, height=20)
         bottom_bar.pack(fill="x", side="bottom")
         bottom_bar.pack_propagate(False)
@@ -127,16 +116,13 @@ class PiholeMonitorApp(tk.Tk):
         )
         self._ts_label.pack(side="left", padx=8)
 
-        # ── BODY ───────────────────────────────────────────────
         body = tk.Frame(self, bg=COLOR_BG)
         body.pack(fill="both", padx=4, pady=4)
 
-        # ── LEFT ───────────────────────────────────────────────
         left = tk.Frame(body, bg=COLOR_SURFACE, width=190)
         left.pack(side="left", fill="y", padx=(0, 3))
         left.pack_propagate(False)
 
-        # ── TOP BLOQUEADOS (mitad superior) ────────────────────
         top_container = tk.Frame(left, bg=COLOR_SURFACE, height=90)
         top_container.pack(fill="x")
         top_container.pack_propagate(False)
@@ -155,7 +141,6 @@ class PiholeMonitorApp(tk.Tk):
 
         self._sep(left)
 
-        # ── CLIENTES (mitad inferior) ──────────────────────────
         client_container = tk.Frame(left, bg=COLOR_SURFACE, height=90)
         client_container.pack(fill="both", expand=True)
         client_container.pack_propagate(False)
@@ -172,7 +157,6 @@ class PiholeMonitorApp(tk.Tk):
         self.clients_list = DeviceList(client_scroll.inner)
         self.clients_list.pack(fill="x")
 
-        # ── RIGHT ──────────────────────────────────────────────
         right = tk.Frame(body, bg=COLOR_SURFACE)
         right.pack(side="left", fill="both", expand=True)
 
@@ -196,14 +180,11 @@ class PiholeMonitorApp(tk.Tk):
                             bg=COLOR_SURFACE, highlightthickness=0)
             dot.create_oval(1, 1, 7, 7, fill=color, outline="")
             dot.pack(side="left", padx=(0, 2))
-
             tk.Label(
                 legend, text=label,
                 bg=COLOR_SURFACE, fg=COLOR_MUTED,
                 font=("monospace", 7)
             ).pack(side="left", padx=(0, 8))
-
-    # ─────────────────────────────────────────────────────────
 
     def _refresh(self):
         try:
@@ -233,7 +214,7 @@ class PiholeMonitorApp(tk.Tk):
         items = repo.get_top_blocked(limit=5)
         self.top_blocked_list.set_items([
             {
-                "primary": _truncate(d["domain"], 22),
+                "primary":   _truncate(d["domain"], 22),
                 "secondary": str(d["count"]),
             }
             for d in items
@@ -243,7 +224,7 @@ class PiholeMonitorApp(tk.Tk):
         clients = repo.get_top_clients(limit=4)
         self.clients_list.set_items([
             {
-                "primary": _truncate(c["alias"], 18),
+                "primary":   _truncate(c["name"], 18),   # fix: era c["alias"]
                 "secondary": str(c["count"]),
             }
             for c in clients
@@ -254,9 +235,7 @@ class PiholeMonitorApp(tk.Tk):
         labels  = [h["label"] for h in history]
         allowed = [max(0, h["queries"] - h["blocked"]) for h in history]
         blocked = [h["blocked"] for h in history]
-
         display_labels = [l if i % 2 == 0 else "" for i, l in enumerate(labels)]
-
         self.chart.update_data(
             labels=display_labels,
             series={"permitidas": allowed, "bloqueadas": blocked},
