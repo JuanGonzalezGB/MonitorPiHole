@@ -34,6 +34,7 @@ class ScrollFrame(tk.Frame):
         self.inner     = tk.Frame(self.canvas, bg=bg)
         self.inner._bg_rol = bg_rol
         self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        etiquetar(self.scrollbar, bg_rol)
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
         self.scrollbar.pack(side="right", fill="y")
         self.canvas.pack(side="left", fill="both", expand=True)
@@ -64,6 +65,7 @@ class ScrollFrameXY(ScrollFrame):
     def __init__(self, parent, bg, bg_rol=ROL_BG2):
         super().__init__(parent, bg=bg, bg_rol=bg_rol)
         self._hbar = tk.Scrollbar(self, orient="horizontal", command=self.canvas.xview)
+        etiquetar(self._hbar, bg_rol)
         self.canvas.configure(xscrollcommand=self._hbar.set)
         self._hbar.pack(in_=self, side="top", fill="x", before=self.canvas)
 
@@ -124,7 +126,16 @@ class DeviceList(tk.Frame):
             ls.pack(side="right")
             self._rows.append(row)
 
-    def update_estilo(self, estilo): self._estilo = estilo
+    def update_estilo(self, estilo): 
+        self._estilo = estilo
+        for row in self._rows:
+            row.config(bg=estilo.bg2)
+            for child in row.winfo_children():
+                if isinstance(child, tk.Label):
+                    if child.cget("anchor") == "w":
+                        child.config(bg=estilo.bg2, fg=estilo.color3)
+                    else:
+                        child.config(bg=estilo.bg2, fg=estilo.muted)
 
 
 class StatusDot(tk.Frame):
@@ -219,7 +230,14 @@ class PiholeMonitorApp(tk.Tk):
         self.status_dot.refresh_dot(nuevo_estilo)
         self.chart.config(bg=nuevo_estilo.bg2)
         self.chart.set_label_color(nuevo_estilo.muted)
-        # Refrescar gráfico con nuevos colores
+        
+        # Actualizar colores de los círculos de la leyenda
+        if hasattr(self, 'legend_dots'):
+            colors = [nuevo_estilo.colorok, nuevo_estilo.colorbad]
+            for dot, color in zip(self.legend_dots, colors):
+                dot.delete("all")
+                dot.create_oval(1, 1, 7, 7, fill=color, outline="")
+        
         self._update_chart()
 
     # ── UI ────────────────────────────────────────────────────────────────────
@@ -325,12 +343,16 @@ class PiholeMonitorApp(tk.Tk):
         etiquetar(legend, ROL_BG2)
         legend.pack(anchor="w", padx=8)
 
+        # Guardar referencias a los círculos de la leyenda
+        self.legend_dots = []
         for color_attr, label in ((e.colorok, "permitidas"), (e.colorbad, "bloqueadas")):
             dot = tk.Canvas(legend, width=8, height=8,
                             bg=e.bg2, highlightthickness=0)
             etiquetar(dot, ROL_BG2)
             dot.create_oval(1, 1, 7, 7, fill=color_attr, outline="")
             dot.pack(side="left", padx=(0, 2))
+            self.legend_dots.append(dot)
+            
             lbl = tk.Label(legend, text=label, bg=e.bg2, fg=e.muted,
                            font=("monospace", 7))
             etiquetar(lbl, ROL_BG2, ROL_MUTED)
