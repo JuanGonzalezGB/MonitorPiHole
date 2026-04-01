@@ -68,10 +68,10 @@ class ScrollFrameXY(ScrollFrame):
         self._hbar.pack(in_=self, side="top", fill="x", before=self.canvas)
 
     def _on_canvas_configure(self, event):
-        pass
+        pass   # no forzar ancho → permite scroll horizontal
 
 
-# ── Widgets ──────────────────────────────────────────────────────────────────
+# ── Widgets temizables ────────────────────────────────────────────────────────
 
 class StatCard(tk.Frame):
     def __init__(self, parent, label: str, estilo, val_rol: str, **kwargs):
@@ -167,6 +167,7 @@ class TopBar(tk.Frame):
         etiquetar(self._ts_lbl, ROL_BG2, ROL_MUTED)
         self._ts_lbl.pack(side="right", padx=10)
 
+        # Botón de temas
         self._btn_tema = tk.Button(
             self, text="◑", bg=estilo.bg2, fg=estilo.color1,
             relief="flat", bd=0, cursor="hand2",
@@ -189,9 +190,10 @@ class PiholeMonitorApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
+        # ── Tema ──────────────────────────────────────────────────────────────
         self._cfg_tema  = ConfigTema(_PROJECT_DIR)
         self.estilo     = EstiloFactory.definirEstilo(self._cfg_tema.get_tema())
-        self._ttk_style = None
+        self._ttk_style = None   # no usamos ttk
 
         self.title("Pi-hole monitor")
         self.geometry("480x280")
@@ -201,10 +203,13 @@ class PiholeMonitorApp(tk.Tk):
 
         self._build_ui()
 
+        # Instanciar controlador DESPUÉS de build_ui
         self._controlador_temas = ControladorTemas(self)
         self.topbar.set_theme_command(self._open_themes)
 
         self._refresh()
+
+    # ── Contrato requerido por ControladorTemas ───────────────────────────────
 
     def apply_estilo(self, nuevo_estilo) -> None:
         self.estilo = nuevo_estilo
@@ -215,15 +220,7 @@ class PiholeMonitorApp(tk.Tk):
         self.chart.config(bg=nuevo_estilo.bg2)
         self.chart.set_label_color(nuevo_estilo.muted)
 
-        # 🔥 FIX: actualizar leyenda manualmente
-        if hasattr(self, "_legend_dots"):
-            dot_canvas, oval_id = self._legend_dots["permitidas"]
-            dot_canvas.itemconfig(oval_id, fill=nuevo_estilo.colorok)
-
-            dot_canvas, oval_id = self._legend_dots["bloqueadas"]
-            dot_canvas.itemconfig(oval_id, fill=nuevo_estilo.colorbad)
-
-        self._update_chart()
+    # ── UI ────────────────────────────────────────────────────────────────────
 
     def _build_ui(self):
         e = self.estilo
@@ -232,6 +229,7 @@ class PiholeMonitorApp(tk.Tk):
         self.topbar.pack(fill="x", side="top")
         self._sep(self, e)
 
+        # Stats
         stats_row = tk.Frame(self, bg=e.bg)
         etiquetar(stats_row, ROL_BG)
         stats_row.pack(fill="x", padx=4, pady=(4, 0))
@@ -247,6 +245,7 @@ class PiholeMonitorApp(tk.Tk):
 
         self._sep(self, e)
 
+        # Footer
         bottom_bar = tk.Frame(self, bg=e.bg, height=20)
         etiquetar(bottom_bar, ROL_BG)
         bottom_bar.pack(fill="x", side="bottom")
@@ -260,17 +259,50 @@ class PiholeMonitorApp(tk.Tk):
         etiquetar(self._ts_label, ROL_BG, ROL_MUTED)
         self._ts_label.pack(side="left", padx=8)
 
+        # Body
         body = tk.Frame(self, bg=e.bg)
         etiquetar(body, ROL_BG)
         body.pack(fill="both", padx=4, pady=4)
 
+        # Columna izquierda
         left = tk.Frame(body, bg=e.bg2, width=190)
         etiquetar(left, ROL_BG2)
         left.pack(side="left", fill="y", padx=(0, 3))
         left.pack_propagate(False)
 
-        # ... (TODO TU CÓDIGO IGUAL)
+        top_container = tk.Frame(left, bg=e.bg2, height=90)
+        etiquetar(top_container, ROL_BG2)
+        top_container.pack(fill="x")
+        top_container.pack_propagate(False)
 
+        lbl_tb = tk.Label(top_container, text="TOP BLOQUEADOS",
+                          bg=e.bg2, fg=e.muted, font=("monospace", 7))
+        etiquetar(lbl_tb, ROL_BG2, ROL_MUTED)
+        lbl_tb.pack(anchor="w", padx=8, pady=(6, 2))
+
+        top_scroll = ScrollFrame(top_container, e.bg2)
+        top_scroll.pack(fill="both", expand=True)
+        self.top_blocked_list = DeviceList(top_scroll.inner, estilo=e)
+        self.top_blocked_list.pack(fill="x")
+
+        self._sep(left, e)
+
+        client_container = tk.Frame(left, bg=e.bg2, height=90)
+        etiquetar(client_container, ROL_BG2)
+        client_container.pack(fill="both", expand=True)
+        client_container.pack_propagate(False)
+
+        lbl_cl = tk.Label(client_container, text="TOP CLIENTES HOY",
+                          bg=e.bg2, fg=e.muted, font=("monospace", 7))
+        etiquetar(lbl_cl, ROL_BG2, ROL_MUTED)
+        lbl_cl.pack(anchor="w", padx=8, pady=(4, 2))
+
+        client_scroll = ScrollFrame(client_container, e.bg2)
+        client_scroll.pack(fill="both", expand=True)
+        self.clients_list = DeviceList(client_scroll.inner, estilo=e)
+        self.clients_list.pack(fill="x")
+
+        # Columna derecha
         right = tk.Frame(body, bg=e.bg2)
         etiquetar(right, ROL_BG2)
         right.pack(side="left", fill="both", expand=True)
@@ -291,29 +323,15 @@ class PiholeMonitorApp(tk.Tk):
         etiquetar(legend, ROL_BG2)
         legend.pack(anchor="w", padx=8)
 
-        # 🔥 FIX REAL
-        self._legend_dots = {}
-
-        for color_attr, key, label in (
-            (e.colorok, "permitidas", "permitidas"),
-            (e.colorbad, "bloqueadas", "bloqueadas"),
-        ):
+        for color_attr, label in ((e.colorok, "permitidas"), (e.colorbad, "bloqueadas")):
             dot = tk.Canvas(legend, width=8, height=8,
                             bg=e.bg2, highlightthickness=0)
             etiquetar(dot, ROL_BG2)
-
-            oval_id = dot.create_oval(1, 1, 7, 7, fill=color_attr, outline="")
+            dot.create_oval(1, 1, 7, 7, fill=color_attr, outline="")
             dot.pack(side="left", padx=(0, 2))
+            tk.Label(legend, text=label, bg=e.bg2, fg=e.muted,
+                     font=("monospace", 7)).pack(side="left", padx=(0, 8))
 
-            lbl = tk.Label(legend, text=label,
-                           bg=e.bg2, fg=e.muted,
-                           font=("monospace", 7))
-            etiquetar(lbl, ROL_BG2, ROL_MUTED)
-            lbl.pack(side="left", padx=(0, 8))
-
-            self._legend_dots[key] = (dot, oval_id)
-
-    # resto del código IGUAL (refresh, stats, etc.)
     # ── Refresh ───────────────────────────────────────────────────────────────
 
     def _refresh(self):
