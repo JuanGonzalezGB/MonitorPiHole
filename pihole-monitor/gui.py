@@ -219,6 +219,8 @@ class PiholeMonitorApp(tk.Tk):
         self.status_dot.refresh_dot(nuevo_estilo)
         self.chart.config(bg=nuevo_estilo.bg2)
         self.chart.set_label_color(nuevo_estilo.muted)
+        # Refrescar gráfico con nuevos colores
+        self._update_chart()
 
     # ── UI ────────────────────────────────────────────────────────────────────
 
@@ -329,8 +331,10 @@ class PiholeMonitorApp(tk.Tk):
             etiquetar(dot, ROL_BG2)
             dot.create_oval(1, 1, 7, 7, fill=color_attr, outline="")
             dot.pack(side="left", padx=(0, 2))
-            tk.Label(legend, text=label, bg=e.bg2, fg=e.muted,
-                     font=("monospace", 7)).pack(side="left", padx=(0, 8))
+            lbl = tk.Label(legend, text=label, bg=e.bg2, fg=e.muted,
+                           font=("monospace", 7))
+            etiquetar(lbl, ROL_BG2, ROL_MUTED)
+            lbl.pack(side="left", padx=(0, 8))
 
     # ── Refresh ───────────────────────────────────────────────────────────────
 
