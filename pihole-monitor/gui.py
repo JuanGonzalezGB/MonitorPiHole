@@ -2,16 +2,6 @@
 pihole-monitor · gui.py
 Interfaz tkinter optimizada para pantalla 480×320.
 Lee datos exclusivamente desde repository.py — nunca toca Mongo o la API directamente.
-
-Layout:
-  ┌─────────────────── TopBar ───────────────────┐
-  │  queries  │ bloqueadas │   %   │ dominios     │  ← 4 StatCards
-  ├──────────────────┬───────────────────────────┤
-  │  Top dominios    │   Gráfica 24h             │
-  │  bloqueados      │                           │
-  ├──────────────────┤                           │
-  │  Clientes        │                           │
-  └──────────────────┴───────────────────────────┘
 """
 
 import tkinter as tk
@@ -24,7 +14,7 @@ from rpicore.config  import (
 )
 import repository as repo
 
-# Ancho mínimo por barra (px) — ajusta este valor a gusto
+# Ancho mínimo por barra — ajusta a gusto
 BAR_MIN_WIDTH = 14
 BAR_GAP       = 3
 
@@ -75,8 +65,7 @@ class ScrollFrame(tk.Frame):
 
 
 class HScrollFrame(tk.Frame):
-    """ScrollFrame con scrollbar horizontal ARRIBA + vertical a la derecha.
-    El inner NO se estira al ancho del canvas, permitiendo scroll horizontal."""
+    """Scroll horizontal (scrollbar arriba) + vertical (scrollbar derecha + drag táctil)."""
 
     def __init__(self, parent, bg):
         super().__init__(parent, bg=bg)
@@ -222,20 +211,21 @@ class PiholeMonitorApp(tk.Tk):
         self.chart_scroll = HScrollFrame(right, COLOR_SURFACE)
         self.chart_scroll.pack(fill="both", expand=True)
 
-        # El chart se crea con width=270 inicial; _update_chart lo redimensiona
-        self.chart = BarChart(self.chart_scroll.inner, width=270, height=118)
-        self.chart.pack(padx=6, pady=(0, 4))
+        # Contenedor del chart dentro del inner — el chart se recrea aquí
+        self._chart_container = self.chart_scroll.inner
+        self.chart = None
 
-        legend = tk.Frame(self.chart_scroll.inner, bg=COLOR_SURFACE)
-        legend.pack(anchor="w", padx=8)
+        # Leyenda — va debajo del chart, también dentro del inner
+        self._legend = tk.Frame(self._chart_container, bg=COLOR_SURFACE)
+        self._legend.pack(anchor="w", padx=8)
 
         for color, label in ((COLOR_BLUE, "permitidas"), (COLOR_RED, "bloqueadas")):
-            dot = tk.Canvas(legend, width=8, height=8,
+            dot = tk.Canvas(self._legend, width=8, height=8,
                             bg=COLOR_SURFACE, highlightthickness=0)
             dot.create_oval(1, 1, 7, 7, fill=color, outline="")
             dot.pack(side="left", padx=(0, 2))
             tk.Label(
-                legend, text=label,
+                self._legend, text=label,
                 bg=COLOR_SURFACE, fg=COLOR_MUTED,
                 font=("monospace", 7)
             ).pack(side="left", padx=(0, 8))
@@ -291,16 +281,23 @@ class PiholeMonitorApp(tk.Tk):
         blocked = [h["blocked"] for h in history]
 
         n = len(labels)
-        if n > 0:
-            # Calcular el ancho necesario para que cada barra tenga espacio cómodo
-            needed_w = 8 + n * (BAR_MIN_WIDTH + BAR_GAP)
-            # Usar el mayor entre el ancho necesario y el panel visible
-            canvas_w = self.chart_scroll.canvas.winfo_width()
-            chart_w  = max(needed_w, canvas_w if canvas_w > 1 else 270)
+        if n == 0:
+            return
 
-            # Redimensionar el canvas del BarChart y actualizar su _chart_w interno
-            self.chart.config(width=chart_w)
-            self.chart._chart_w = chart_w
+        # Calcular ancho necesario para que las barras quepan cómodamente
+        needed_w = 8 + n * (BAR_MIN_WIDTH + BAR_GAP)
+        # Leer el ancho real del canvas visible (puede ser 1 antes del primer render)
+        canvas_w = self.chart_scroll.canvas.winfo_width()
+        chart_w  = max(needed_w, canvas_w if canvas_w > 1 else 270)
+
+        # Destruir el chart anterior y crear uno nuevo con el ancho correcto.
+        # Esto garantiza que _chart_w y el tamaño real del canvas coincidan.
+        if self.chart is not None:
+            self.chart.destroy()
+
+        self.chart = BarChart(self._chart_container, width=chart_w, height=118)
+        # Insertar el chart ANTES de la leyenda
+        self.chart.pack(padx=6, pady=(0, 4), before=self._legend)
 
         self.chart.update_data(
             labels=labels,
