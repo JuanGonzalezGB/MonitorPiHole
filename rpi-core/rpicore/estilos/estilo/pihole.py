@@ -5,9 +5,9 @@ class PiholeColor(Estilo):
         self.nombre = "pihole"
 
         # fondos (gris azulado oscuro)
-        self.bg      = "#1f232a"
-        self.bg2     = "#2a2f36"
-        self.border  = "#3a4048"
+        self.bg      = "#1f2a27"
+        self.bg2     = "#2a3631"
+        self.border  = "#3a4844"
 
         # estados (basados en las tarjetas)
         self.colorok   = "#27ae60"   # verde (Domains on Lists)
