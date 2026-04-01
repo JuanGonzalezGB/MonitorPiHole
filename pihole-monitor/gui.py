@@ -58,16 +58,31 @@ class PiholeMonitorApp(tk.Tk):
         self.card_domains  = StatCard(stats_row, label="LISTA",        color=COLOR_BLUE)
 
         for card in (self.card_queries, self.card_blocked,
-                     self.card_percent, self.card_domains):
+                    self.card_percent, self.card_domains):
             card.pack(side="left", expand=True, fill="both", padx=2)
 
         self._sep(self)
 
-        # Cuerpo principal: columna izquierda + gráfica derecha
-        body = tk.Frame(self, bg=COLOR_BG)
-        body.pack(fill="both", expand=True, padx=4, pady=4)
+        # ── FOOTER PRIMERO (CLAVE) ─────────────────────────────────────
+        bottom_bar = tk.Frame(self, bg=COLOR_BG, height=20)
+        bottom_bar.pack(fill="x", side="bottom")
+        bottom_bar.pack_propagate(False)
 
-        # ── Columna izquierda ──────────────────────────────────────────────
+        self.status_dot = StatusDot(bottom_bar, label="Pi-hole")
+        self.status_dot.pack(side="right", padx=8)
+
+        self._ts_label = tk.Label(
+            bottom_bar, text="",
+            bg=COLOR_BG, fg=COLOR_MUTED,
+            font=("monospace", 7),
+        )
+        self._ts_label.pack(side="left", padx=8)
+
+        # ── BODY DESPUÉS (SIN expand=True) ─────────────────────────────
+        body = tk.Frame(self, bg=COLOR_BG)
+        body.pack(fill="both", padx=4, pady=4)
+
+        # ── Columna izquierda ─────────────────────────────────────────
         left = tk.Frame(body, bg=COLOR_SURFACE, width=190)
         left.pack(side="left", fill="y", padx=(0, 3))
         left.pack_propagate(False)
@@ -92,7 +107,7 @@ class PiholeMonitorApp(tk.Tk):
         self.clients_list = DeviceList(left)
         self.clients_list.pack(fill="x")
 
-        # ── Columna derecha: gráfica ───────────────────────────────────────
+        # ── Columna derecha: gráfica ──────────────────────────────────
         right = tk.Frame(body, bg=COLOR_SURFACE)
         right.pack(side="left", fill="both", expand=True)
 
@@ -105,31 +120,22 @@ class PiholeMonitorApp(tk.Tk):
         self.chart = BarChart(right, width=270, height=118)
         self.chart.pack(padx=6, pady=(0, 4))
 
-        # leyenda de colores
+        # leyenda
         legend = tk.Frame(right, bg=COLOR_SURFACE)
         legend.pack(anchor="w", padx=8)
+
         for color, label in ((COLOR_BLUE, "permitidas"), (COLOR_RED, "bloqueadas")):
             dot = tk.Canvas(legend, width=8, height=8,
                             bg=COLOR_SURFACE, highlightthickness=0)
             dot.create_oval(1, 1, 7, 7, fill=color, outline="")
             dot.pack(side="left", padx=(0, 2))
-            tk.Label(legend, text=label, bg=COLOR_SURFACE, fg=COLOR_MUTED,
-                     font=("monospace", 7)).pack(side="left", padx=(0, 8))
 
-        # StatusDot en la esquina inferior derecha
-        bottom_bar = tk.Frame(self, bg=COLOR_BG, height=20)
-        bottom_bar.pack(fill="x", side="bottom")
-        bottom_bar.pack_propagate(False)
+            tk.Label(
+                legend, text=label,
+                bg=COLOR_SURFACE, fg=COLOR_MUTED,
+                font=("monospace", 7)
+            ).pack(side="left", padx=(0, 8))
 
-        self.status_dot = StatusDot(bottom_bar, label="Pi-hole")
-        self.status_dot.pack(side="right", padx=8)
-
-        self._ts_label = tk.Label(
-            bottom_bar, text="",
-            bg=COLOR_BG, fg=COLOR_MUTED,
-            font=("monospace", 7),
-        )
-        self._ts_label.pack(side="left", padx=8)
 
     # ── Refresh ───────────────────────────────────────────────────────────────
 
