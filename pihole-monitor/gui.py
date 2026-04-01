@@ -16,7 +16,7 @@ from rpicore.estilos.controlador.controladorTemas import (
 from rpicore.estilos.modelo.config import ConfigTema
 from rpicore.estilos.vista.selectema import ThemeSelector
 from rpicore.widgets import BarChart
-from rpicore.config import SCREEN_W, SCREEN_H, REFRESH_MS
+from rpicore.config import REFRESH_MS
 
 import repository as repo
 
@@ -196,7 +196,7 @@ class PiholeMonitorApp(tk.Tk):
         self._ttk_style = None   # no usamos ttk
 
         self.title("Pi-hole monitor")
-        self.geometry(f"{SCREEN_W}x{SCREEN_H}")
+        self.geometry("480x280")
         self.resizable(False, False)
         self.configure(bg=self.estilo.bg)
         self.overrideredirect(False)
