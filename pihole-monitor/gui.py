@@ -136,13 +136,18 @@ class PiholeMonitorApp(tk.Tk):
         left.pack(side="left", fill="y", padx=(0, 3))
         left.pack_propagate(False)
 
+        # ── TOP BLOQUEADOS (mitad superior) ────────────────────
+        top_container = tk.Frame(left, bg=COLOR_SURFACE, height=90)
+        top_container.pack(fill="x")
+        top_container.pack_propagate(False)
+
         tk.Label(
-            left, text="TOP BLOQUEADOS",
+            top_container, text="TOP BLOQUEADOS",
             bg=COLOR_SURFACE, fg=COLOR_MUTED,
             font=("monospace", 7),
         ).pack(anchor="w", padx=8, pady=(6, 2))
 
-        top_scroll = ScrollFrame(left, COLOR_SURFACE)
+        top_scroll = ScrollFrame(top_container, COLOR_SURFACE)
         top_scroll.pack(fill="both", expand=True)
 
         self.top_blocked_list = DeviceList(top_scroll.inner)
@@ -150,13 +155,18 @@ class PiholeMonitorApp(tk.Tk):
 
         self._sep(left)
 
+        # ── CLIENTES (mitad inferior) ──────────────────────────
+        client_container = tk.Frame(left, bg=COLOR_SURFACE, height=90)
+        client_container.pack(fill="both", expand=True)
+        client_container.pack_propagate(False)
+
         tk.Label(
-            left, text="CLIENTES ACTIVOS",
+            client_container, text="CLIENTES ACTIVOS",
             bg=COLOR_SURFACE, fg=COLOR_MUTED,
             font=("monospace", 7),
         ).pack(anchor="w", padx=8, pady=(4, 2))
 
-        client_scroll = ScrollFrame(left, COLOR_SURFACE)
+        client_scroll = ScrollFrame(client_container, COLOR_SURFACE)
         client_scroll.pack(fill="both", expand=True)
 
         self.clients_list = DeviceList(client_scroll.inner)
