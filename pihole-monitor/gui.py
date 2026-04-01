@@ -332,21 +332,30 @@ class PiholeMonitorApp(tk.Tk):
         etiquetar(legend, ROL_BG2)
         legend.pack(anchor="w", padx=8)
 
-        # FIX: guardar referencias a los ovals para poder repintarlos al cambiar tema
-        self._legend_dots: dict[str, tuple[tk.Canvas, int]] = {}
-        for color_attr, key, label in (
-            (e.colorok, "permitidas", "permitidas"),
-            (e.colorbad, "bloqueadas", "bloqueadas"),
-        ):
+        for key, label in (("permitidas", "permitidas"), ("bloqueadas", "bloqueadas")):
             dot = tk.Canvas(legend, width=8, height=8,
                             bg=e.bg2, highlightthickness=0)
-            etiquetar(dot, ROL_BG2)
-            oval_id = dot.create_oval(1, 1, 7, 7, fill=color_attr, outline="")
-            dot.pack(side="left", padx=(0, 2))
-            tk.Label(legend, text=label, bg=e.bg2, fg=e.muted,
-                     font=("monospace", 7)).pack(side="left", padx=(0, 8))
-            self._legend_dots[key] = (dot, oval_id)
 
+            # 🔥 CLAVE: etiquetar correctamente el fondo
+            etiquetar(dot, ROL_BG2)
+
+            # 🔥 CLAVE: usar roles, NO colores directos
+            rol_color = ROL_OK if key == "permitidas" else ROL_BAD
+            dot_id = dot.create_oval(1, 1, 7, 7,
+                                    fill=getattr(e, rol_color),
+                                    outline="")
+
+            dot.pack(side="left", padx=(0, 2))
+
+            lbl = tk.Label(legend, text=label,
+                        bg=e.bg2,
+                        fg=e.muted,
+                        font=("monospace", 7))
+
+            # 🔥 CLAVE: etiquetar texto también
+            etiquetar(lbl, ROL_BG2, ROL_MUTED)
+
+            lbl.pack(side="left", padx=(0, 8))
     # ── Refresh ───────────────────────────────────────────────────────────────
 
     def _refresh(self):
