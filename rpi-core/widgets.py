@@ -95,8 +95,8 @@ class BarChart(tk.Canvas):
         n = len(labels)
         padding_x = 4
         bar_area_w = self._chart_w - padding_x * 2
-        bar_w = max(2, (bar_area_w // n) - 2)
-        gap = (bar_area_w - bar_w * n) // max(n - 1, 1)
+        gap   = max(1, bar_area_w // (n * 6))
+        bar_w = max(2, (bar_area_w - gap * (n - 1)) // n)
 
         # máximo total para escalar
         totals = [sum(s[i] for s in series.values()) for i in range(n)]

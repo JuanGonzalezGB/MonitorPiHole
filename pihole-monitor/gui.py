@@ -235,9 +235,8 @@ class PiholeMonitorApp(tk.Tk):
         labels  = [h["label"] for h in history]
         allowed = [max(0, h["queries"] - h["blocked"]) for h in history]
         blocked = [h["blocked"] for h in history]
-        display_labels = [l if i % 2 == 0 else "" for i, l in enumerate(labels)]
         self.chart.update_data(
-            labels=display_labels,
+            labels=labels,
             series={"permitidas": allowed, "bloqueadas": blocked},
             colors={"permitidas": COLOR_BLUE, "bloqueadas": COLOR_RED},
         )
