@@ -207,7 +207,7 @@ class PiholeMonitorApp(tk.Tk):
         self._ttk_style = None   # no usamos ttk
 
         self.title("Pi-hole monitor")
-        self.geometry("480x280")
+        self.geometry("480x260")
         self.resizable(False, False)
         self.configure(bg=self.estilo.bg)
         self.overrideredirect(False)
