@@ -1,0 +1,18 @@
+[Unit]
+Description=Network monitor collector (arp-scan)
+After=network-online.target mongod.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/gurthbrannon/rasphole/Source/network-monitor
+ExecStart=/usr/bin/python3 /home/gurthbrannon/rasphole/Source/network-monitor/collector.py
+Restart=always
+RestartSec=15
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

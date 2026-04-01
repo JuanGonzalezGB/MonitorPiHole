@@ -1,0 +1,12 @@
+README.md
+setup.py
+rpicore/__init__.py
+rpicore/config.py
+rpicore/db.py
+rpicore/devices.py
+rpicore/widgets.py
+rpicore.egg-info/PKG-INFO
+rpicore.egg-info/SOURCES.txt
+rpicore.egg-info/dependency_links.txt
+rpicore.egg-info/requires.txt
+rpicore.egg-info/top_level.txt

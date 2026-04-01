@@ -1,0 +1,19 @@
+[Unit]
+Description=Pi-hole data collector
+After=network-online.target mongod.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/rpi-projects/pihole-monitor
+ExecStart=/usr/bin/python3 /home/pi/rpi-projects/pihole-monitor/collector.py
+Restart=always
+RestartSec=10
+
+# Logs disponibles con: journalctl -u pihole-collector -f
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
