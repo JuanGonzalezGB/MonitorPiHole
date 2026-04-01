@@ -92,7 +92,7 @@ class PiholeMonitorApp(tk.Tk):
         super().__init__()
 
         self.title("Pi-hole monitor")
-        self.geometry("480x280")
+        self.geometry("480x255")
         self.resizable(False, False)
         self.configure(bg=COLOR_BG)
         self.overrideredirect(False)
