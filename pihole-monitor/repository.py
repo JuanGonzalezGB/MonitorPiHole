@@ -47,7 +47,6 @@ def get_status() -> str:
 def get_history_24h() -> list[dict]:
     """
     Devuelve 12 buckets de 2h cubriendo las últimas 24h.
-    Más legible en la gráfica que 24 barras de 1h.
     Siempre devuelve exactamente 12 items (rellena con 0 si faltan datos).
     """
     since = datetime.now(timezone.utc) - timedelta(hours=24)
@@ -57,21 +56,29 @@ def get_history_24h() -> list[dict]:
         sort=[("hour", 1)],
     ))
 
-    # Agrupar por bloques de 2h
-    by_hour = {d["hour"].replace(minute=0, second=0, microsecond=0): d for d in docs}
+    # Normalizar keys a timestamps enteros (segundos) para evitar problemas de tz
+    by_ts: dict[int, dict] = {}
+    for d in docs:
+        h = d["hour"]
+        if h.tzinfo is None:
+            h = h.replace(tzinfo=timezone.utc)
+        ts = int(h.replace(minute=0, second=0, microsecond=0).timestamp())
+        by_ts[ts] = d
 
     result = []
     base = since.replace(minute=0, second=0, microsecond=0)
     for i in range(12):
         h0 = base + timedelta(hours=i * 2)
         h1 = base + timedelta(hours=i * 2 + 1)
+        ts0 = int(h0.timestamp())
+        ts1 = int(h1.timestamp())
 
-        d0 = by_hour.get(h0.replace(tzinfo=timezone.utc), {})
-        d1 = by_hour.get(h1.replace(tzinfo=timezone.utc), {})
+        d0 = by_ts.get(ts0, {})
+        d1 = by_ts.get(ts1, {})
 
         result.append({
             "hour":    h0,
-            "queries": d0.get("total", 0) + d1.get("total", 0),
+            "queries": d0.get("total", 0)   + d1.get("total", 0),
             "blocked": d0.get("blocked", 0) + d1.get("blocked", 0),
             "label":   h0.strftime("%Hh"),
         })

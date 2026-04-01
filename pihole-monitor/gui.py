@@ -26,10 +26,13 @@ _PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 # ── ScrollFrame ───────────────────────────────────────────────────────────────
 
 class ScrollFrame(tk.Frame):
-    def __init__(self, parent, bg):
+    def __init__(self, parent, bg, bg_rol=ROL_BG2):
         super().__init__(parent, bg=bg)
+        etiquetar(self, bg_rol)
         self.canvas    = tk.Canvas(self, bg=bg, highlightthickness=0)
+        self.canvas._bg_rol = bg_rol
         self.inner     = tk.Frame(self.canvas, bg=bg)
+        self.inner._bg_rol = bg_rol
         self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
         self.scrollbar.pack(side="right", fill="y")
@@ -58,8 +61,8 @@ class ScrollFrame(tk.Frame):
 
 
 class ScrollFrameXY(ScrollFrame):
-    def __init__(self, parent, bg):
-        super().__init__(parent, bg=bg)
+    def __init__(self, parent, bg, bg_rol=ROL_BG2):
+        super().__init__(parent, bg=bg, bg_rol=bg_rol)
         self._hbar = tk.Scrollbar(self, orient="horizontal", command=self.canvas.xview)
         self.canvas.configure(xscrollcommand=self._hbar.set)
         self._hbar.pack(in_=self, side="top", fill="x", before=self.canvas)
@@ -215,6 +218,8 @@ class PiholeMonitorApp(tk.Tk):
         self.top_blocked_list.update_estilo(nuevo_estilo)
         self.clients_list.update_estilo(nuevo_estilo)
         self.status_dot.refresh_dot(nuevo_estilo)
+        # BarChart es un Canvas — actualizar bg directamente
+        self.chart.config(bg=nuevo_estilo.bg2)
 
     # ── UI ────────────────────────────────────────────────────────────────────
 
