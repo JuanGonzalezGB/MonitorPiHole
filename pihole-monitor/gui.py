@@ -26,8 +26,6 @@ import repository as repo
 
 
 class ScrollFrame(tk.Frame):
-    """Scroll vertical con drag táctil."""
-
     def __init__(self, parent, bg):
         super().__init__(parent, bg=bg)
 
@@ -72,38 +70,47 @@ class ScrollFrame(tk.Frame):
         self._start_y = event.y
 
 
-class BiScrollFrame(tk.Frame):
-    """Canvas con scroll horizontal (scrollbar visible ARRIBA) +
-    scroll vertical (drag táctil). El contenido se construye en self.inner."""
+class HScrollFrame(tk.Frame):
+    """Igual que ScrollFrame pero con scrollbar HORIZONTAL arriba + vertical por drag.
+    Se usa solo para el panel del chart. El inner NO se fuerza al ancho del canvas,
+    así el contenido puede ser más ancho que la vista y activar el scroll horizontal."""
 
     def __init__(self, parent, bg):
         super().__init__(parent, bg=bg)
 
         # Scrollbar horizontal en la parte superior
-        self._h_scroll = tk.Scrollbar(self, orient="horizontal")
-        self._h_scroll.pack(side="top", fill="x")
+        self._hbar = tk.Scrollbar(self, orient="horizontal")
+        self._hbar.pack(side="top", fill="x")
 
-        # Canvas que ocupa el resto del espacio
-        self.canvas = tk.Canvas(self, bg=bg, highlightthickness=0)
-        self.canvas.pack(fill="both", expand=True)
+        # Scrollbar vertical a la derecha
+        self._vbar = tk.Scrollbar(self, orient="vertical")
+        self._vbar.pack(side="right", fill="y")
 
-        # Enlace canvas ↔ scrollbar horizontal
-        self._h_scroll.configure(command=self.canvas.xview)
-        self.canvas.configure(xscrollcommand=self._h_scroll.set)
+        # Canvas principal
+        self.canvas = tk.Canvas(
+            self, bg=bg, highlightthickness=0,
+            xscrollcommand=self._hbar.set,
+            yscrollcommand=self._vbar.set,
+        )
+        self.canvas.pack(side="left", fill="both", expand=True)
 
-        # Frame interior con el contenido real
+        self._hbar.configure(command=self.canvas.xview)
+        self._vbar.configure(command=self.canvas.yview)
+
+        # Frame interior — NO se ajusta al ancho del canvas (a diferencia de ScrollFrame)
         self.inner = tk.Frame(self.canvas, bg=bg)
-        self._window = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
+        self.window = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
 
         self.inner.bind("<Configure>", self._on_inner_configure)
 
-        # Drag táctil: mueve en X e Y simultáneamente
+        # Drag táctil en ambas direcciones
         self.canvas.bind("<ButtonPress-1>", self._on_press)
         self.canvas.bind("<B1-Motion>",     self._on_drag)
         self._drag_x = 0
         self._drag_y = 0
 
     def _on_inner_configure(self, event):
+        # Actualiza el scrollregion cada vez que cambia el tamaño del inner
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _on_press(self, event):
@@ -168,7 +175,6 @@ class PiholeMonitorApp(tk.Tk):
         body = tk.Frame(self, bg=COLOR_BG)
         body.pack(fill="both", padx=4, pady=4)
 
-        # ── Panel izquierdo (sin cambios) ─────────────────────────────────
         left = tk.Frame(body, bg=COLOR_SURFACE, width=190)
         left.pack(side="left", fill="y", padx=(0, 3))
         left.pack_propagate(False)
@@ -207,7 +213,6 @@ class PiholeMonitorApp(tk.Tk):
         self.clients_list = DeviceList(client_scroll.inner)
         self.clients_list.pack(fill="x")
 
-        # ── Panel derecho: gráfica 24h con scroll H (arriba) + V (drag) ───
         right = tk.Frame(body, bg=COLOR_SURFACE)
         right.pack(side="left", fill="both", expand=True)
 
@@ -217,12 +222,11 @@ class PiholeMonitorApp(tk.Tk):
             font=("monospace", 7),
         ).pack(anchor="w", padx=8, pady=(6, 2))
 
-        # BiScrollFrame ocupa el resto del panel derecho
-        chart_scroll = BiScrollFrame(right, COLOR_SURFACE)
+        # ── ÚNICO CAMBIO: ScrollFrame → HScrollFrame ──────────────────────
+        chart_scroll = HScrollFrame(right, COLOR_SURFACE)
         chart_scroll.pack(fill="both", expand=True)
 
-        # BarChart más ancho que el panel → activa scroll horizontal
-        self.chart = BarChart(chart_scroll.inner, width=480, height=118)
+        self.chart = BarChart(chart_scroll.inner, width=270, height=118)
         self.chart.pack(padx=6, pady=(0, 4))
 
         legend = tk.Frame(chart_scroll.inner, bg=COLOR_SURFACE)
