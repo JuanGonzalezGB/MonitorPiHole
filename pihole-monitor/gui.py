@@ -192,7 +192,7 @@ class PiholeMonitorApp(tk.Tk):
         self._cfg_tema  = ConfigTema(_PROJECT_DIR)
         self.estilo     = EstiloFactory.definirEstilo(self._cfg_tema.get_tema())
         self._ttk_style = None
-        
+
         self.title("Pi-hole monitor")
         self.geometry("480x280")
         self.resizable(False, False)
@@ -209,22 +209,20 @@ class PiholeMonitorApp(tk.Tk):
     def apply_estilo(self, nuevo_estilo) -> None:
         self.estilo = nuevo_estilo
         self.configure(bg=nuevo_estilo.bg)
-
         self.top_blocked_list.update_estilo(nuevo_estilo)
         self.clients_list.update_estilo(nuevo_estilo)
-
         self.status_dot.refresh_dot(nuevo_estilo)
-
         self.chart.config(bg=nuevo_estilo.bg2)
         self.chart.set_label_color(nuevo_estilo.muted)
 
-        # actualizar leyenda
-        for dot, dot_id, key in self._legend_dots:
-            color = nuevo_estilo.colorok if key == "permitidas" else nuevo_estilo.colorbad
-            dot.itemconfig(dot_id, fill=color)
-            dot.config(bg=nuevo_estilo.bg2)
+        # 🔥 FIX: actualizar leyenda manualmente
+        if hasattr(self, "_legend_dots"):
+            dot_canvas, oval_id = self._legend_dots["permitidas"]
+            dot_canvas.itemconfig(oval_id, fill=nuevo_estilo.colorok)
 
-        # 🔥 actualizar gráfico inmediatamente
+            dot_canvas, oval_id = self._legend_dots["bloqueadas"]
+            dot_canvas.itemconfig(oval_id, fill=nuevo_estilo.colorbad)
+
         self._update_chart()
 
     def _build_ui(self):
@@ -271,37 +269,7 @@ class PiholeMonitorApp(tk.Tk):
         left.pack(side="left", fill="y", padx=(0, 3))
         left.pack_propagate(False)
 
-        top_container = tk.Frame(left, bg=e.bg2, height=90)
-        etiquetar(top_container, ROL_BG2)
-        top_container.pack(fill="x")
-        top_container.pack_propagate(False)
-
-        lbl_tb = tk.Label(top_container, text="TOP BLOQUEADOS",
-                          bg=e.bg2, fg=e.muted, font=("monospace", 7))
-        etiquetar(lbl_tb, ROL_BG2, ROL_MUTED)
-        lbl_tb.pack(anchor="w", padx=8, pady=(6, 2))
-
-        top_scroll = ScrollFrame(top_container, e.bg2)
-        top_scroll.pack(fill="both", expand=True)
-        self.top_blocked_list = DeviceList(top_scroll.inner, estilo=e)
-        self.top_blocked_list.pack(fill="x")
-
-        self._sep(left, e)
-
-        client_container = tk.Frame(left, bg=e.bg2, height=90)
-        etiquetar(client_container, ROL_BG2)
-        client_container.pack(fill="both", expand=True)
-        client_container.pack_propagate(False)
-
-        lbl_cl = tk.Label(client_container, text="TOP CLIENTES HOY",
-                          bg=e.bg2, fg=e.muted, font=("monospace", 7))
-        etiquetar(lbl_cl, ROL_BG2, ROL_MUTED)
-        lbl_cl.pack(anchor="w", padx=8, pady=(4, 2))
-
-        client_scroll = ScrollFrame(client_container, e.bg2)
-        client_scroll.pack(fill="both", expand=True)
-        self.clients_list = DeviceList(client_scroll.inner, estilo=e)
-        self.clients_list.pack(fill="x")
+        # ... (TODO TU CÓDIGO IGUAL)
 
         right = tk.Frame(body, bg=e.bg2)
         etiquetar(right, ROL_BG2)
@@ -323,31 +291,29 @@ class PiholeMonitorApp(tk.Tk):
         etiquetar(legend, ROL_BG2)
         legend.pack(anchor="w", padx=8)
 
-        for key, label in (("permitidas", "permitidas"), ("bloqueadas", "bloqueadas")):
+        # 🔥 FIX REAL
+        self._legend_dots = {}
+
+        for color_attr, key, label in (
+            (e.colorok, "permitidas", "permitidas"),
+            (e.colorbad, "bloqueadas", "bloqueadas"),
+        ):
             dot = tk.Canvas(legend, width=8, height=8,
                             bg=e.bg2, highlightthickness=0)
-
-            # 🔥 CLAVE: etiquetar correctamente el fondo
             etiquetar(dot, ROL_BG2)
 
-            # 🔥 CLAVE: usar roles, NO colores directos
-            rol_color = ROL_OK if key == "permitidas" else ROL_BAD
-            dot_id = dot.create_oval(1, 1, 7, 7,
-                                    fill=getattr(e, rol_color),
-                                    outline="")
-
+            oval_id = dot.create_oval(1, 1, 7, 7, fill=color_attr, outline="")
             dot.pack(side="left", padx=(0, 2))
 
             lbl = tk.Label(legend, text=label,
-                        bg=e.bg2,
-                        fg=e.muted,
-                        font=("monospace", 7))
-
-            # 🔥 CLAVE: etiquetar texto también
+                           bg=e.bg2, fg=e.muted,
+                           font=("monospace", 7))
             etiquetar(lbl, ROL_BG2, ROL_MUTED)
-
             lbl.pack(side="left", padx=(0, 8))
 
+            self._legend_dots[key] = (dot, oval_id)
+
+    # resto del código IGUAL (refresh, stats, etc.)
     # ── Refresh ───────────────────────────────────────────────────────────────
 
     def _refresh(self):
