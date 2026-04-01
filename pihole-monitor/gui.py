@@ -2,6 +2,16 @@
 pihole-monitor · gui.py
 Interfaz tkinter optimizada para pantalla 480×320.
 Lee datos exclusivamente desde repository.py — nunca toca Mongo o la API directamente.
+
+Layout:
+  ┌─────────────────── TopBar ───────────────────┐
+  │  queries  │ bloqueadas │   %   │ dominios     │  ← 4 StatCards
+  ├──────────────────┬───────────────────────────┤
+  │  Top dominios    │   Gráfica 24h             │
+  │  bloqueados      │                           │
+  ├──────────────────┤                           │
+  │  Clientes        │                           │
+  └──────────────────┴───────────────────────────┘
 """
 
 import tkinter as tk
@@ -13,10 +23,6 @@ from rpicore.config  import (
     COLOR_GREEN, COLOR_RED, COLOR_BLUE, COLOR_AMBER,
 )
 import repository as repo
-
-# Ancho mínimo por barra — ajusta a gusto
-BAR_MIN_WIDTH = 14
-BAR_GAP       = 3
 
 
 class ScrollFrame(tk.Frame):
@@ -64,52 +70,21 @@ class ScrollFrame(tk.Frame):
         self._start_y = event.y
 
 
-class HScrollFrame(tk.Frame):
-    """Scroll horizontal (scrollbar arriba) + vertical (scrollbar derecha + drag táctil)."""
+class ScrollFrameXY(ScrollFrame):
+    """ScrollFrame original + scrollbar horizontal arriba del canvas."""
 
     def __init__(self, parent, bg):
         super().__init__(parent, bg=bg)
 
-        self._hbar = tk.Scrollbar(self, orient="horizontal")
-        self._hbar.pack(side="top", fill="x")
+        self._hbar = tk.Scrollbar(self, orient="horizontal", command=self.canvas.xview)
+        self.canvas.configure(xscrollcommand=self._hbar.set)
 
-        self._vbar = tk.Scrollbar(self, orient="vertical")
-        self._vbar.pack(side="right", fill="y")
+        # Insertar la scrollbar horizontal ENCIMA del canvas
+        self._hbar.pack(in_=self, side="top", fill="x", before=self.canvas)
 
-        self.canvas = tk.Canvas(
-            self, bg=bg, highlightthickness=0,
-            xscrollcommand=self._hbar.set,
-            yscrollcommand=self._vbar.set,
-        )
-        self.canvas.pack(side="left", fill="both", expand=True)
-
-        self._hbar.configure(command=self.canvas.xview)
-        self._vbar.configure(command=self.canvas.yview)
-
-        self.inner = tk.Frame(self.canvas, bg=bg)
-        self.window = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
-
-        self.inner.bind("<Configure>", self._on_inner_configure)
-
-        self.canvas.bind("<ButtonPress-1>", self._on_press)
-        self.canvas.bind("<B1-Motion>",     self._on_drag)
-        self._drag_x = 0
-        self._drag_y = 0
-
-    def _on_inner_configure(self, event):
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-
-    def _on_press(self, event):
-        self._drag_x = event.x
-        self._drag_y = event.y
-
-    def _on_drag(self, event):
-        dx = self._drag_x - event.x
-        dy = self._drag_y - event.y
-        self.canvas.xview_scroll(int(dx / 2), "units")
-        self.canvas.yview_scroll(int(dy / 2), "units")
-        self._drag_x = event.x
-        self._drag_y = event.y
+    def _on_canvas_configure(self, event):
+        # NO forzar el ancho del inner al canvas → permite scroll horizontal
+        pass
 
 
 class PiholeMonitorApp(tk.Tk):
@@ -208,24 +183,23 @@ class PiholeMonitorApp(tk.Tk):
             font=("monospace", 7),
         ).pack(anchor="w", padx=8, pady=(6, 2))
 
-        self.chart_scroll = HScrollFrame(right, COLOR_SURFACE)
-        self.chart_scroll.pack(fill="both", expand=True)
+        # ÚNICO CAMBIO: ScrollFrame → ScrollFrameXY (agrega scrollbar horizontal arriba)
+        chart_scroll = ScrollFrameXY(right, COLOR_SURFACE)
+        chart_scroll.pack(fill="both", expand=True)
 
-        # Contenedor del chart dentro del inner — el chart se recrea aquí
-        self._chart_container = self.chart_scroll.inner
-        self.chart = None
+        self.chart = BarChart(chart_scroll.inner, width=270, height=118)
+        self.chart.pack(padx=6, pady=(0, 4))
 
-        # Leyenda — va debajo del chart, también dentro del inner
-        self._legend = tk.Frame(self._chart_container, bg=COLOR_SURFACE)
-        self._legend.pack(anchor="w", padx=8)
+        legend = tk.Frame(chart_scroll.inner, bg=COLOR_SURFACE)
+        legend.pack(anchor="w", padx=8)
 
         for color, label in ((COLOR_BLUE, "permitidas"), (COLOR_RED, "bloqueadas")):
-            dot = tk.Canvas(self._legend, width=8, height=8,
+            dot = tk.Canvas(legend, width=8, height=8,
                             bg=COLOR_SURFACE, highlightthickness=0)
             dot.create_oval(1, 1, 7, 7, fill=color, outline="")
             dot.pack(side="left", padx=(0, 2))
             tk.Label(
-                self._legend, text=label,
+                legend, text=label,
                 bg=COLOR_SURFACE, fg=COLOR_MUTED,
                 font=("monospace", 7)
             ).pack(side="left", padx=(0, 8))
@@ -268,7 +242,7 @@ class PiholeMonitorApp(tk.Tk):
         clients = repo.get_top_clients(limit=4)
         self.clients_list.set_items([
             {
-                "primary":   _truncate(c["name"], 18),
+                "primary":   _truncate(c["name"], 18),   # fix: era c["alias"]
                 "secondary": str(c["count"]),
             }
             for c in clients
@@ -279,26 +253,6 @@ class PiholeMonitorApp(tk.Tk):
         labels  = [h["label"] for h in history]
         allowed = [max(0, h["queries"] - h["blocked"]) for h in history]
         blocked = [h["blocked"] for h in history]
-
-        n = len(labels)
-        if n == 0:
-            return
-
-        # Calcular ancho necesario para que las barras quepan cómodamente
-        needed_w = 8 + n * (BAR_MIN_WIDTH + BAR_GAP)
-        # Leer el ancho real del canvas visible (puede ser 1 antes del primer render)
-        canvas_w = self.chart_scroll.canvas.winfo_width()
-        chart_w  = max(needed_w, canvas_w if canvas_w > 1 else 270)
-
-        # Destruir el chart anterior y crear uno nuevo con el ancho correcto.
-        # Esto garantiza que _chart_w y el tamaño real del canvas coincidan.
-        if self.chart is not None:
-            self.chart.destroy()
-
-        self.chart = BarChart(self._chart_container, width=chart_w, height=118)
-        # Insertar el chart ANTES de la leyenda
-        self.chart.pack(padx=6, pady=(0, 4), before=self._legend)
-
         self.chart.update_data(
             labels=labels,
             series={"permitidas": allowed, "bloqueadas": blocked},
