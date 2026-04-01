@@ -146,7 +146,7 @@ class PiholeMonitorApp(tk.Tk):
         client_container.pack_propagate(False)
 
         tk.Label(
-            client_container, text="CLIENTES ACTIVOS",
+            client_container, text="TOP CLIENTES HOY",
             bg=COLOR_SURFACE, fg=COLOR_MUTED,
             font=("monospace", 7),
         ).pack(anchor="w", padx=8, pady=(4, 2))
