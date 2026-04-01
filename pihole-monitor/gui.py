@@ -25,21 +25,70 @@ from rpicore.config  import (
 import repository as repo
 
 
+# ─────────────────────────────────────────────────────────────
+# ScrollFrame reutilizable (mouse + touch drag)
+# ─────────────────────────────────────────────────────────────
+class ScrollFrame(tk.Frame):
+    def __init__(self, parent, bg):
+        super().__init__(parent, bg=bg)
+
+        self.canvas = tk.Canvas(self, bg=bg, highlightthickness=0)
+        self.inner = tk.Frame(self.canvas, bg=bg)
+
+        self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.scrollbar.pack(side="right", fill="y")
+        self.canvas.pack(side="left", fill="both", expand=True)
+
+        self.window = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
+
+        self.inner.bind("<Configure>", self._on_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+
+        # Mouse wheel (Linux/Windows)
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))
+        self.canvas.bind_all("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))
+
+        # Touch-like drag
+        self.canvas.bind("<ButtonPress-1>", self._on_press)
+        self.canvas.bind("<B1-Motion>", self._on_drag)
+
+        self._start_y = 0
+
+    def _on_configure(self, event):
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event):
+        self.canvas.itemconfig(self.window, width=event.width)
+
+    def _on_mousewheel(self, event):
+        self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+    def _on_press(self, event):
+        self._start_y = event.y
+
+    def _on_drag(self, event):
+        delta = self._start_y - event.y
+        self.canvas.yview_scroll(int(delta / 2), "units")
+        self._start_y = event.y
+
+
 class PiholeMonitorApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        # ── Ventana ────────────────────────────────────────────────────────
         self.title("Pi-hole monitor")
         self.geometry("480x280")
         self.resizable(False, False)
         self.configure(bg=COLOR_BG)
-        self.overrideredirect(False)   # sin bordes de ventana en la Pi
+        self.overrideredirect(False)
 
         self._build_ui()
-        self._refresh()               # primera carga inmediata
+        self._refresh()
 
-    # ── Construcción del UI ───────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────
 
     def _build_ui(self):
         # TopBar
@@ -48,7 +97,7 @@ class PiholeMonitorApp(tk.Tk):
 
         self._sep(self)
 
-        # Fila de StatCards
+        # Stats
         stats_row = tk.Frame(self, bg=COLOR_BG)
         stats_row.pack(fill="x", padx=4, pady=(4, 0))
 
@@ -58,12 +107,12 @@ class PiholeMonitorApp(tk.Tk):
         self.card_domains  = StatCard(stats_row, label="LISTA",        color=COLOR_BLUE)
 
         for card in (self.card_queries, self.card_blocked,
-                    self.card_percent, self.card_domains):
+                     self.card_percent, self.card_domains):
             card.pack(side="left", expand=True, fill="both", padx=2)
 
         self._sep(self)
 
-        # ── FOOTER PRIMERO (CLAVE) ─────────────────────────────────────
+        # ── FOOTER ─────────────────────────────────────────────
         bottom_bar = tk.Frame(self, bg=COLOR_BG, height=20)
         bottom_bar.pack(fill="x", side="bottom")
         bottom_bar.pack_propagate(False)
@@ -78,11 +127,11 @@ class PiholeMonitorApp(tk.Tk):
         )
         self._ts_label.pack(side="left", padx=8)
 
-        # ── BODY DESPUÉS (SIN expand=True) ─────────────────────────────
+        # ── BODY ───────────────────────────────────────────────
         body = tk.Frame(self, bg=COLOR_BG)
         body.pack(fill="both", padx=4, pady=4)
 
-        # ── Columna izquierda ─────────────────────────────────────────
+        # ── LEFT ───────────────────────────────────────────────
         left = tk.Frame(body, bg=COLOR_SURFACE, width=190)
         left.pack(side="left", fill="y", padx=(0, 3))
         left.pack_propagate(False)
@@ -93,7 +142,10 @@ class PiholeMonitorApp(tk.Tk):
             font=("monospace", 7),
         ).pack(anchor="w", padx=8, pady=(6, 2))
 
-        self.top_blocked_list = DeviceList(left)
+        top_scroll = ScrollFrame(left, COLOR_SURFACE)
+        top_scroll.pack(fill="both", expand=True)
+
+        self.top_blocked_list = DeviceList(top_scroll.inner)
         self.top_blocked_list.pack(fill="x")
 
         self._sep(left)
@@ -104,10 +156,13 @@ class PiholeMonitorApp(tk.Tk):
             font=("monospace", 7),
         ).pack(anchor="w", padx=8, pady=(4, 2))
 
-        self.clients_list = DeviceList(left)
+        client_scroll = ScrollFrame(left, COLOR_SURFACE)
+        client_scroll.pack(fill="both", expand=True)
+
+        self.clients_list = DeviceList(client_scroll.inner)
         self.clients_list.pack(fill="x")
 
-        # ── Columna derecha: gráfica ──────────────────────────────────
+        # ── RIGHT ──────────────────────────────────────────────
         right = tk.Frame(body, bg=COLOR_SURFACE)
         right.pack(side="left", fill="both", expand=True)
 
@@ -117,11 +172,13 @@ class PiholeMonitorApp(tk.Tk):
             font=("monospace", 7),
         ).pack(anchor="w", padx=8, pady=(6, 2))
 
-        self.chart = BarChart(right, width=270, height=118)
+        chart_scroll = ScrollFrame(right, COLOR_SURFACE)
+        chart_scroll.pack(fill="both", expand=True)
+
+        self.chart = BarChart(chart_scroll.inner, width=270, height=118)
         self.chart.pack(padx=6, pady=(0, 4))
 
-        # leyenda
-        legend = tk.Frame(right, bg=COLOR_SURFACE)
+        legend = tk.Frame(chart_scroll.inner, bg=COLOR_SURFACE)
         legend.pack(anchor="w", padx=8)
 
         for color, label in ((COLOR_BLUE, "permitidas"), (COLOR_RED, "bloqueadas")):
@@ -136,8 +193,7 @@ class PiholeMonitorApp(tk.Tk):
                 font=("monospace", 7)
             ).pack(side="left", padx=(0, 8))
 
-
-    # ── Refresh ───────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────
 
     def _refresh(self):
         try:
@@ -165,10 +221,9 @@ class PiholeMonitorApp(tk.Tk):
 
     def _update_top_blocked(self):
         items = repo.get_top_blocked(limit=5)
-        max_count = items[0]["count"] if items else 1
         self.top_blocked_list.set_items([
             {
-                "primary":   _truncate(d["domain"], 22),
+                "primary": _truncate(d["domain"], 22),
                 "secondary": str(d["count"]),
             }
             for d in items
@@ -178,7 +233,7 @@ class PiholeMonitorApp(tk.Tk):
         clients = repo.get_top_clients(limit=4)
         self.clients_list.set_items([
             {
-                "primary":   _truncate(c["alias"], 18),
+                "primary": _truncate(c["alias"], 18),
                 "secondary": str(c["count"]),
             }
             for c in clients
@@ -190,7 +245,6 @@ class PiholeMonitorApp(tk.Tk):
         allowed = [max(0, h["queries"] - h["blocked"]) for h in history]
         blocked = [h["blocked"] for h in history]
 
-        # Mostrar solo cada 2h para no saturar el eje
         display_labels = [l if i % 2 == 0 else "" for i, l in enumerate(labels)]
 
         self.chart.update_data(
@@ -198,8 +252,6 @@ class PiholeMonitorApp(tk.Tk):
             series={"permitidas": allowed, "bloqueadas": blocked},
             colors={"permitidas": COLOR_BLUE, "bloqueadas": COLOR_RED},
         )
-
-    # ── Helpers ───────────────────────────────────────────────────────────────
 
     @staticmethod
     def _sep(parent):
