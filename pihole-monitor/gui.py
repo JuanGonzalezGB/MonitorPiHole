@@ -214,12 +214,11 @@ class PiholeMonitorApp(tk.Tk):
     def apply_estilo(self, nuevo_estilo) -> None:
         self.estilo = nuevo_estilo
         self.configure(bg=nuevo_estilo.bg)
-        # Actualizar referencias internas que el controlador no alcanza
         self.top_blocked_list.update_estilo(nuevo_estilo)
         self.clients_list.update_estilo(nuevo_estilo)
         self.status_dot.refresh_dot(nuevo_estilo)
-        # BarChart es un Canvas — actualizar bg directamente
         self.chart.config(bg=nuevo_estilo.bg2)
+        self.chart.set_label_color(nuevo_estilo.muted)
 
     # ── UI ────────────────────────────────────────────────────────────────────
 
@@ -316,14 +315,15 @@ class PiholeMonitorApp(tk.Tk):
         chart_scroll = ScrollFrameXY(right, e.bg2)
         chart_scroll.pack(fill="both", expand=True)
 
-        self.chart = BarChart(chart_scroll.inner, width=270, height=118)
+        self.chart = BarChart(chart_scroll.inner, width=270, height=118,
+                              bg=e.bg2, label_color=e.muted)
         self.chart.pack(padx=6, pady=(0, 4))
 
         legend = tk.Frame(chart_scroll.inner, bg=e.bg2)
         etiquetar(legend, ROL_BG2)
         legend.pack(anchor="w", padx=8)
 
-        for color_attr, label in ((e.color2, "permitidas"), (e.colorbad, "bloqueadas")):
+        for color_attr, label in ((e.colorok, "permitidas"), (e.colorbad, "bloqueadas")):
             dot = tk.Canvas(legend, width=8, height=8,
                             bg=e.bg2, highlightthickness=0)
             etiquetar(dot, ROL_BG2)
@@ -380,7 +380,10 @@ class PiholeMonitorApp(tk.Tk):
         self.chart.update_data(
             labels=labels,
             series={"permitidas": allowed, "bloqueadas": blocked},
-            colors={"permitidas": self.estilo.color2, "bloqueadas": self.estilo.colorbad},
+            colors={
+                "permitidas": self.estilo.colorok,
+                "bloqueadas": self.estilo.colorbad,
+            },
         )
 
     def _open_themes(self):
