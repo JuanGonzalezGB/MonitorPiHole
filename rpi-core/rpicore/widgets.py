@@ -64,23 +64,26 @@ class StatCard(tk.Frame):
 
 class BarChart(tk.Canvas):
     """
-    Gráfica de barras apiladas (permitidas + bloqueadas) sobre Canvas.
-    Uso:
-        chart = BarChart(parent, width=260, height=110)
-        chart.update_data(
-            labels=["00","02",...],
-            series={"permitidas": [...], "bloqueadas": [...]},
-            colors={"permitidas": "#378ADD", "bloqueadas": "#E24B4A"},
-        )
+    Gráfica de barras apiladas sobre Canvas.
+    bg y label_color se pasan en el constructor y se pueden actualizar
+    llamando a config(bg=...) y set_label_color(...) al cambiar de tema.
     """
 
-    def __init__(self, parent, width: int = 260, height: int = 110, **kwargs):
+    def __init__(self, parent, width: int = 260, height: int = 110,
+                 label_color: str = COLOR_MUTED, **kwargs):
         super().__init__(
             parent, width=width, height=height,
-            bg=COLOR_SURFACE, highlightthickness=0, **kwargs,
+            highlightthickness=0, **kwargs,
         )
-        self._chart_w = width
-        self._chart_h = height
+        self._chart_w     = width
+        self._chart_h     = height
+        self._label_color = label_color
+        self._last_data: tuple | None = None   # (labels, series, colors) para redibujar
+
+    def set_label_color(self, color: str) -> None:
+        self._label_color = color
+        if self._last_data:
+            self.update_data(*self._last_data)
 
     def update_data(
         self,
@@ -88,6 +91,7 @@ class BarChart(tk.Canvas):
         series: dict[str, list[float]],
         colors: dict[str, str],
     ) -> None:
+        self._last_data = (labels, series, colors)
         self.delete("all")
         if not labels:
             return
@@ -95,22 +99,19 @@ class BarChart(tk.Canvas):
         n = len(labels)
         padding_x = 4
         bar_area_w = self._chart_w - padding_x * 2
-        bar_w = max(2, (bar_area_w // n) - 2)
-        gap = (bar_area_w - bar_w * n) // max(n - 1, 1)
+        gap   = max(1, bar_area_w // (n * 6))
+        bar_w = max(2, (bar_area_w - gap * (n - 1)) // n)
 
-        # máximo total para escalar
-        totals = [sum(s[i] for s in series.values()) for i in range(n)]
+        totals  = [sum(s[i] for s in series.values()) for i in range(n)]
         max_val = max(totals) if max(totals) > 0 else 1
-
-        chart_h = self._chart_h - 16  # reservar 16px para labels
+        chart_h = self._chart_h - 16
 
         for i, label in enumerate(labels):
-            x = padding_x + i * (bar_w + gap)
+            x      = padding_x + i * (bar_w + gap)
             bottom = chart_h
 
-            # dibujar cada serie de abajo hacia arriba
             for key, values in reversed(list(series.items())):
-                val = values[i] if i < len(values) else 0
+                val   = values[i] if i < len(values) else 0
                 bar_h = int((val / max_val) * chart_h)
                 if bar_h > 0:
                     self.create_rectangle(
@@ -120,11 +121,10 @@ class BarChart(tk.Canvas):
                     )
                     bottom -= bar_h
 
-            # label de hora
-            if i % 2 == 0:  # cada 2 para no saturar
+            if i % 2 == 0:
                 self.create_text(
                     x + bar_w // 2, self._chart_h - 6,
-                    text=label, fill=COLOR_MUTED,
+                    text=label, fill=self._label_color,
                     font=("monospace", 6), anchor="center",
                 )
 
