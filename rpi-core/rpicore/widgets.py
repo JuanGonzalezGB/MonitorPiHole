@@ -19,6 +19,7 @@ from rpicore.config import (
     COLOR_BG, COLOR_SURFACE, COLOR_BORDER,
     COLOR_TEXT, COLOR_MUTED, COLOR_GREEN, COLOR_RED,
 )
+from rpicore.estilos.controlador.controladorTemas import etiquetar, ROL_BG2, ROL_MUTED, ROL_COLOR1, ROL_BG
 
 
 # ── StatCard ──────────────────────────────────────────────────────────────────
@@ -33,31 +34,34 @@ class StatCard(tk.Frame):
 
     def __init__(self, parent, label: str, color: str = COLOR_TEXT, **kwargs):
         super().__init__(parent, bg=COLOR_SURFACE, **kwargs)
+        etiquetar(self, ROL_BG2)
         self._color = color
 
         self._label_var = tk.StringVar(value=label)
         self._value_var = tk.StringVar(value="—")
 
-        tk.Label(
+        lbl = tk.Label(
             self, textvariable=self._label_var,
             bg=COLOR_SURFACE, fg=COLOR_MUTED,
             font=("monospace", 7), anchor="center",
-        ).pack(fill="x", padx=6, pady=(6, 0))
+        )
+        etiquetar(lbl, ROL_BG2, ROL_MUTED)
+        lbl.pack(fill="x", padx=6, pady=(6, 0))
 
-        tk.Label(
+        self._val_lbl = tk.Label(
             self, textvariable=self._value_var,
             bg=COLOR_SURFACE, fg=color,
             font=("monospace", 16, "bold"), anchor="center",
-        ).pack(fill="x", padx=6, pady=(2, 6))
+        )
+        etiquetar(self._val_lbl, ROL_BG2)
+        self._val_lbl.pack(fill="x", padx=6, pady=(2, 6))
 
     def set_value(self, value: str) -> None:
         self._value_var.set(value)
 
     def set_color(self, color: str) -> None:
         self._color = color
-        for widget in self.winfo_children():
-            if isinstance(widget, tk.Label) and widget.cget("font") != ("monospace", 7):
-                widget.config(fg=color)
+        self._val_lbl.config(fg=color)
 
 
 # ── BarChart ──────────────────────────────────────────────────────────────────
@@ -75,6 +79,7 @@ class BarChart(tk.Canvas):
             parent, width=width, height=height,
             highlightthickness=0, **kwargs,
         )
+        etiquetar(self, ROL_BG2)
         self._chart_w     = width
         self._chart_h     = height
         self._label_color = label_color
@@ -144,8 +149,10 @@ class DeviceList(tk.Frame):
 
     def __init__(self, parent, height: int = 80, **kwargs):
         super().__init__(parent, bg=COLOR_SURFACE, **kwargs)
+        etiquetar(self, ROL_BG2)
         self._height = height
         self._rows: list[tk.Frame] = []
+        self._estilo = None
 
     def set_items(self, items: list[dict]) -> None:
         for row in self._rows:
@@ -154,21 +161,38 @@ class DeviceList(tk.Frame):
 
         for item in items:
             row = tk.Frame(self, bg=COLOR_SURFACE)
+            etiquetar(row, ROL_BG2)
             row.pack(fill="x", padx=8, pady=1)
 
-            tk.Label(
+            lp = tk.Label(
                 row, text=item.get("primary", ""),
                 bg=COLOR_SURFACE, fg=COLOR_TEXT,
                 font=("monospace", 8), anchor="w",
-            ).pack(side="left")
+            )
+            etiquetar(lp, ROL_BG2)
+            lp.pack(side="left")
 
-            tk.Label(
+            ls = tk.Label(
                 row, text=item.get("secondary", ""),
                 bg=COLOR_SURFACE, fg=COLOR_MUTED,
                 font=("monospace", 7), anchor="e",
-            ).pack(side="right")
+            )
+            etiquetar(ls, ROL_BG2, ROL_MUTED)
+            ls.pack(side="right")
 
             self._rows.append(row)
+
+    def update_estilo(self, estilo):
+        self._estilo = estilo
+        # Actualizar colores de todas las filas existentes
+        for row in self._rows:
+            row.config(bg=estilo.bg2)
+            for child in row.winfo_children():
+                if isinstance(child, tk.Label):
+                    if child.cget("anchor") == "w":  # primary
+                        child.config(bg=estilo.bg2, fg=estilo.color3)
+                    else:  # secondary
+                        child.config(bg=estilo.bg2, fg=estilo.muted)
 
 
 # ── StatusDot ─────────────────────────────────────────────────────────────────
@@ -183,22 +207,33 @@ class StatusDot(tk.Frame):
 
     def __init__(self, parent, label: str = "", **kwargs):
         super().__init__(parent, bg=COLOR_SURFACE, **kwargs)
+        etiquetar(self, ROL_BG2)
 
         self._canvas = tk.Canvas(
             self, width=10, height=10,
             bg=COLOR_SURFACE, highlightthickness=0,
         )
+        etiquetar(self._canvas, ROL_BG2)
         self._canvas.pack(side="left", padx=(4, 3))
         self._dot = self._canvas.create_oval(1, 1, 9, 9, fill=COLOR_MUTED, outline="")
 
-        tk.Label(
+        lbl = tk.Label(
             self, text=label,
             bg=COLOR_SURFACE, fg=COLOR_MUTED,
             font=("monospace", 8),
-        ).pack(side="left")
+        )
+        etiquetar(lbl, ROL_BG2, ROL_MUTED)
+        lbl.pack(side="left")
+        
+        self._online = False
 
     def set_status(self, online: bool) -> None:
+        self._online = online
         color = COLOR_GREEN if online else COLOR_RED
+        self._canvas.itemconfig(self._dot, fill=color)
+    
+    def refresh_dot(self, estilo):
+        color = estilo.colorok if self._online else estilo.colorbad
         self._canvas.itemconfig(self._dot, fill=color)
 
 
@@ -214,20 +249,25 @@ class TopBar(tk.Frame):
 
     def __init__(self, parent, title: str = "", **kwargs):
         super().__init__(parent, bg=COLOR_SURFACE, height=28, **kwargs)
+        etiquetar(self, ROL_BG2)
         self.pack_propagate(False)
 
-        tk.Label(
+        lbl = tk.Label(
             self, text=title,
             bg=COLOR_SURFACE, fg=COLOR_MUTED,
             font=("monospace", 8), anchor="w",
-        ).pack(side="left", padx=10)
+        )
+        etiquetar(lbl, ROL_BG2, ROL_MUTED)
+        lbl.pack(side="left", padx=10)
 
         self._ts_var = tk.StringVar(value="")
-        tk.Label(
+        self._ts_lbl = tk.Label(
             self, textvariable=self._ts_var,
             bg=COLOR_SURFACE, fg=COLOR_MUTED,
             font=("monospace", 7), anchor="e",
-        ).pack(side="right", padx=10)
+        )
+        etiquetar(self._ts_lbl, ROL_BG2, ROL_MUTED)
+        self._ts_lbl.pack(side="right", padx=10)
 
     def tick(self) -> None:
         """Actualiza el timestamp al momento actual."""
