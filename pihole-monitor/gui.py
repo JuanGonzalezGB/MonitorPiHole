@@ -26,6 +26,8 @@ import repository as repo
 
 
 class ScrollFrame(tk.Frame):
+    """Scroll vertical con drag táctil."""
+
     def __init__(self, parent, bg):
         super().__init__(parent, bg=bg)
 
@@ -68,6 +70,53 @@ class ScrollFrame(tk.Frame):
         delta = self._start_y - event.y
         self.canvas.yview_scroll(int(delta / 2), "units")
         self._start_y = event.y
+
+
+class BiScrollFrame(tk.Frame):
+    """Canvas con scroll horizontal (scrollbar visible ARRIBA) +
+    scroll vertical (drag táctil). El contenido se construye en self.inner."""
+
+    def __init__(self, parent, bg):
+        super().__init__(parent, bg=bg)
+
+        # Scrollbar horizontal en la parte superior
+        self._h_scroll = tk.Scrollbar(self, orient="horizontal")
+        self._h_scroll.pack(side="top", fill="x")
+
+        # Canvas que ocupa el resto del espacio
+        self.canvas = tk.Canvas(self, bg=bg, highlightthickness=0)
+        self.canvas.pack(fill="both", expand=True)
+
+        # Enlace canvas ↔ scrollbar horizontal
+        self._h_scroll.configure(command=self.canvas.xview)
+        self.canvas.configure(xscrollcommand=self._h_scroll.set)
+
+        # Frame interior con el contenido real
+        self.inner = tk.Frame(self.canvas, bg=bg)
+        self._window = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
+
+        self.inner.bind("<Configure>", self._on_inner_configure)
+
+        # Drag táctil: mueve en X e Y simultáneamente
+        self.canvas.bind("<ButtonPress-1>", self._on_press)
+        self.canvas.bind("<B1-Motion>",     self._on_drag)
+        self._drag_x = 0
+        self._drag_y = 0
+
+    def _on_inner_configure(self, event):
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _on_press(self, event):
+        self._drag_x = event.x
+        self._drag_y = event.y
+
+    def _on_drag(self, event):
+        dx = self._drag_x - event.x
+        dy = self._drag_y - event.y
+        self.canvas.xview_scroll(int(dx / 2), "units")
+        self.canvas.yview_scroll(int(dy / 2), "units")
+        self._drag_x = event.x
+        self._drag_y = event.y
 
 
 class PiholeMonitorApp(tk.Tk):
@@ -119,6 +168,7 @@ class PiholeMonitorApp(tk.Tk):
         body = tk.Frame(self, bg=COLOR_BG)
         body.pack(fill="both", padx=4, pady=4)
 
+        # ── Panel izquierdo (sin cambios) ─────────────────────────────────
         left = tk.Frame(body, bg=COLOR_SURFACE, width=190)
         left.pack(side="left", fill="y", padx=(0, 3))
         left.pack_propagate(False)
@@ -157,6 +207,7 @@ class PiholeMonitorApp(tk.Tk):
         self.clients_list = DeviceList(client_scroll.inner)
         self.clients_list.pack(fill="x")
 
+        # ── Panel derecho: gráfica 24h con scroll H (arriba) + V (drag) ───
         right = tk.Frame(body, bg=COLOR_SURFACE)
         right.pack(side="left", fill="both", expand=True)
 
@@ -166,10 +217,12 @@ class PiholeMonitorApp(tk.Tk):
             font=("monospace", 7),
         ).pack(anchor="w", padx=8, pady=(6, 2))
 
-        chart_scroll = ScrollFrame(right, COLOR_SURFACE)
+        # BiScrollFrame ocupa el resto del panel derecho
+        chart_scroll = BiScrollFrame(right, COLOR_SURFACE)
         chart_scroll.pack(fill="both", expand=True)
 
-        self.chart = BarChart(chart_scroll.inner, width=270, height=118)
+        # BarChart más ancho que el panel → activa scroll horizontal
+        self.chart = BarChart(chart_scroll.inner, width=480, height=118)
         self.chart.pack(padx=6, pady=(0, 4))
 
         legend = tk.Frame(chart_scroll.inner, bg=COLOR_SURFACE)
@@ -224,7 +277,7 @@ class PiholeMonitorApp(tk.Tk):
         clients = repo.get_top_clients(limit=4)
         self.clients_list.set_items([
             {
-                "primary":   _truncate(c["name"], 18),   # fix: era c["alias"]
+                "primary":   _truncate(c["name"], 18),
                 "secondary": str(c["count"]),
             }
             for c in clients
