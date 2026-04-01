@@ -108,7 +108,7 @@ class PiholeMonitorApp(tk.Tk):
 
         for card in (self.card_queries, self.card_blocked,
                      self.card_percent, self.card_domains):
-            card.pack(side="left", expand=True, fill="both", padx=2)
+            card.pack(side="left", expand=True, fill="x", padx=2)
 
         self._sep(self)
 
