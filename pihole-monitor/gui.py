@@ -24,6 +24,10 @@ from rpicore.config  import (
 )
 import repository as repo
 
+# Ancho mínimo por barra (px) — ajusta este valor a gusto
+BAR_MIN_WIDTH = 14
+BAR_GAP       = 3
+
 
 class ScrollFrame(tk.Frame):
     def __init__(self, parent, bg):
@@ -71,22 +75,18 @@ class ScrollFrame(tk.Frame):
 
 
 class HScrollFrame(tk.Frame):
-    """Igual que ScrollFrame pero con scrollbar HORIZONTAL arriba + vertical por drag.
-    Se usa solo para el panel del chart. El inner NO se fuerza al ancho del canvas,
-    así el contenido puede ser más ancho que la vista y activar el scroll horizontal."""
+    """ScrollFrame con scrollbar horizontal ARRIBA + vertical a la derecha.
+    El inner NO se estira al ancho del canvas, permitiendo scroll horizontal."""
 
     def __init__(self, parent, bg):
         super().__init__(parent, bg=bg)
 
-        # Scrollbar horizontal en la parte superior
         self._hbar = tk.Scrollbar(self, orient="horizontal")
         self._hbar.pack(side="top", fill="x")
 
-        # Scrollbar vertical a la derecha
         self._vbar = tk.Scrollbar(self, orient="vertical")
         self._vbar.pack(side="right", fill="y")
 
-        # Canvas principal
         self.canvas = tk.Canvas(
             self, bg=bg, highlightthickness=0,
             xscrollcommand=self._hbar.set,
@@ -97,20 +97,17 @@ class HScrollFrame(tk.Frame):
         self._hbar.configure(command=self.canvas.xview)
         self._vbar.configure(command=self.canvas.yview)
 
-        # Frame interior — NO se ajusta al ancho del canvas (a diferencia de ScrollFrame)
         self.inner = tk.Frame(self.canvas, bg=bg)
         self.window = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
 
         self.inner.bind("<Configure>", self._on_inner_configure)
 
-        # Drag táctil en ambas direcciones
         self.canvas.bind("<ButtonPress-1>", self._on_press)
         self.canvas.bind("<B1-Motion>",     self._on_drag)
         self._drag_x = 0
         self._drag_y = 0
 
     def _on_inner_configure(self, event):
-        # Actualiza el scrollregion cada vez que cambia el tamaño del inner
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _on_press(self, event):
@@ -222,14 +219,14 @@ class PiholeMonitorApp(tk.Tk):
             font=("monospace", 7),
         ).pack(anchor="w", padx=8, pady=(6, 2))
 
-        # ── ÚNICO CAMBIO: ScrollFrame → HScrollFrame ──────────────────────
-        chart_scroll = HScrollFrame(right, COLOR_SURFACE)
-        chart_scroll.pack(fill="both", expand=True)
+        self.chart_scroll = HScrollFrame(right, COLOR_SURFACE)
+        self.chart_scroll.pack(fill="both", expand=True)
 
-        self.chart = BarChart(chart_scroll.inner, width=270, height=118)
+        # El chart se crea con width=270 inicial; _update_chart lo redimensiona
+        self.chart = BarChart(self.chart_scroll.inner, width=270, height=118)
         self.chart.pack(padx=6, pady=(0, 4))
 
-        legend = tk.Frame(chart_scroll.inner, bg=COLOR_SURFACE)
+        legend = tk.Frame(self.chart_scroll.inner, bg=COLOR_SURFACE)
         legend.pack(anchor="w", padx=8)
 
         for color, label in ((COLOR_BLUE, "permitidas"), (COLOR_RED, "bloqueadas")):
@@ -292,6 +289,19 @@ class PiholeMonitorApp(tk.Tk):
         labels  = [h["label"] for h in history]
         allowed = [max(0, h["queries"] - h["blocked"]) for h in history]
         blocked = [h["blocked"] for h in history]
+
+        n = len(labels)
+        if n > 0:
+            # Calcular el ancho necesario para que cada barra tenga espacio cómodo
+            needed_w = 8 + n * (BAR_MIN_WIDTH + BAR_GAP)
+            # Usar el mayor entre el ancho necesario y el panel visible
+            canvas_w = self.chart_scroll.canvas.winfo_width()
+            chart_w  = max(needed_w, canvas_w if canvas_w > 1 else 270)
+
+            # Redimensionar el canvas del BarChart y actualizar su _chart_w interno
+            self.chart.config(width=chart_w)
+            self.chart._chart_w = chart_w
+
         self.chart.update_data(
             labels=labels,
             series={"permitidas": allowed, "bloqueadas": blocked},
