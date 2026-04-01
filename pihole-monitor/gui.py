@@ -194,7 +194,7 @@ class PiholeMonitorApp(tk.Tk):
         self._cfg_tema  = ConfigTema(_PROJECT_DIR)
         self.estilo     = EstiloFactory.definirEstilo(self._cfg_tema.get_tema())
         self._ttk_style = None   # no usamos ttk
-
+        
         self.title("Pi-hole monitor")
         self.geometry("480x280")
         self.resizable(False, False)
@@ -219,6 +219,15 @@ class PiholeMonitorApp(tk.Tk):
         self.status_dot.refresh_dot(nuevo_estilo)
         self.chart.config(bg=nuevo_estilo.bg2)
         self.chart.set_label_color(nuevo_estilo.muted)
+
+        # Actualizar dots de la leyenda
+        dot_canvas, oval_id = self._legend_dots["permitidas"]
+        dot_canvas.itemconfig(oval_id, fill=nuevo_estilo.colorok)
+        dot_canvas, oval_id = self._legend_dots["bloqueadas"]
+        dot_canvas.itemconfig(oval_id, fill=nuevo_estilo.colorbad)
+
+        # Forzar repintado inmediato del chart con los nuevos colores
+        self._update_chart()
 
     # ── UI ────────────────────────────────────────────────────────────────────
 
@@ -323,14 +332,20 @@ class PiholeMonitorApp(tk.Tk):
         etiquetar(legend, ROL_BG2)
         legend.pack(anchor="w", padx=8)
 
-        for color_attr, label in ((e.colorok, "permitidas"), (e.colorbad, "bloqueadas")):
+        # FIX: guardar referencias a los ovals para poder repintarlos al cambiar tema
+        self._legend_dots: dict[str, tuple[tk.Canvas, int]] = {}
+        for color_attr, key, label in (
+            (e.colorok, "permitidas", "permitidas"),
+            (e.colorbad, "bloqueadas", "bloqueadas"),
+        ):
             dot = tk.Canvas(legend, width=8, height=8,
                             bg=e.bg2, highlightthickness=0)
             etiquetar(dot, ROL_BG2)
-            dot.create_oval(1, 1, 7, 7, fill=color_attr, outline="")
+            oval_id = dot.create_oval(1, 1, 7, 7, fill=color_attr, outline="")
             dot.pack(side="left", padx=(0, 2))
             tk.Label(legend, text=label, bg=e.bg2, fg=e.muted,
                      font=("monospace", 7)).pack(side="left", padx=(0, 8))
+            self._legend_dots[key] = (dot, oval_id)
 
     # ── Refresh ───────────────────────────────────────────────────────────────
 
