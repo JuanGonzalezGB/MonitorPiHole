@@ -94,7 +94,11 @@ def get_top_clients(limit: int = 5) -> list[dict]:
     if not doc:
         return []
 
-    items = doc.get("items", [])[:limit]
+    _LOCALHOST = {"127.0.0.1", "::1", "localhost"}
+    items = [
+        item for item in doc.get("items", [])
+        if item["ip"].split("|")[0] not in _LOCALHOST
+    ][:limit]
     ips   = [item["ip"].split("|")[0] for item in items]
 
     # ip → mac desde scanner.scans
