@@ -35,8 +35,8 @@ PIHOLE_PORT: int = int(os.getenv("PIHOLE_PORT", "80"))
 # ── GUI ───────────────────────────────────────────────────────────────────────
 SCREEN_W: int = int(os.getenv("SCREEN_W", "480"))
 SCREEN_H: int = int(os.getenv("SCREEN_H", "320"))
-REFRESH_MS: int = int(os.getenv("REFRESH_MS", "30000"))   # 30 s por defecto
-
+REFRESH_MS: int = int(os.getenv("REFRESH_MS", "10000"))   # 30 s por defecto
+'''
 # ── Colores base para tkinter (tema oscuro) ───────────────────────────────────
 COLOR_BG      = "#0f1117"
 COLOR_SURFACE = "#161b27"
@@ -47,4 +47,4 @@ COLOR_GREEN   = "#1D9E75"
 COLOR_RED     = "#E24B4A"
 COLOR_BLUE    = "#378ADD"
 COLOR_AMBER   = "#EF9F27"
-COLOR_PURPLE  = "#7F77DD"
+COLOR_PURPLE  = "#7F77DD"'''
