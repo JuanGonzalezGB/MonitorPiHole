@@ -215,6 +215,9 @@ def save_active_clients(data: dict) -> None:
         upsert=True,
     )
     log.info(f"active_clients: {len(active_ips)} activos en últimos 5min")
+
+
+def ensure_indexes() -> None:
     _col("stats").create_index("timestamp", expireAfterSeconds=172800)  # TTL 48h
     _col("history").create_index("hour")
     log.info("índices verificados")
