@@ -32,25 +32,25 @@ rpi-projects/
 ```
 arp-scan (red local)
     │
-    ▼  cada 2 min
-network-monitor/collector.py
-    └── escribe → scanner.scans  {mac, ip, vendor, last_seen}
+    ▼  cada N segundos (configurable desde la GUI, hot-reload sin reiniciar)
+network-monitor/collector.py  ← servicio systemd
+    └── escribe → scanner.scans  {mac, ip, vendor, ping_ms, last_seen}
 
 Pi-hole API v6 (http://192.168.0.108/api)
     │
     ▼  cada 30s
-pihole-monitor/collector.py
+pihole-monitor/collector.py  ← servicio systemd
     └── escribe → pihole_db.stats       (snapshot con TTL 48h)
     └── escribe → pihole_db.history     (buckets horarios)
     └── escribe → pihole_db.top_blocked (doc único)
     └── escribe → pihole_db.top_clients (doc único)
 
-scanner.dispositivos {mac, name}  ← escrito por app scanner (sin cambios)
+scanner.dispositivos {mac, name}  ← escrito exclusivamente por la GUI network-monitor
     +
-scanner.scans        {mac, ip}    ← escrito por network-monitor/collector.py
+scanner.scans        {mac, ip}    ← escrito exclusivamente por network-monitor/collector.py
     │
     ▼  cada 5 min
-pihole-monitor/sync.py
+pihole-monitor/sync.py  ← servicio systemd
     └── cruza mac→name + mac→ip
     └── registra en Pi-hole /api/clients con comment=name
 
@@ -67,14 +67,14 @@ pihole-monitor/gui.py  (tkinter, pantalla 480×320)
 
 ## Base de datos MongoDB (192.168.0.108:27017)
 
-### scanner (db existente, no modificada en su estructura original)
+### scanner (db compartida)
 
-| Colección | Dueño | Contenido |
+| Colección | Dueño (escritura) | Contenido |
 |---|---|---|
-| `dispositivos` | app scanner | `{mac, name}` — dispositivos con nombre asignado |
+| `dispositivos` | GUI network-monitor | `{mac, name}` — nombres asignados por el usuario |
 | `scans` | network-monitor/collector | `{mac, ip, vendor, ping_ms, last_seen, first_seen}` |
 
-### pihole_db (db nueva)
+### pihole_db
 
 | Colección | TTL | Contenido |
 |---|---|---|
@@ -88,12 +88,14 @@ pihole-monitor/gui.py  (tkinter, pantalla 480×320)
 ## rpi-core
 
 Librería interna instalada en modo editable (`pip install -e rpi-core/`).
+La intención es que todas las apps del ecosistema migren progresivamente a usar
+sus módulos como base común.
 
 ### Módulos
 
 **`config.py`** — carga `.env` buscándolo hacia arriba en el árbol de carpetas.
 Expone constantes: `MONGO_URI`, `DB_SCANNER`, `DB_PIHOLE`, `PIHOLE_HOST`,
-`PIHOLE_PASSWORD`, `COLLECTION_DEVICES`, `SCREEN_W/H`, `REFRESH_MS`, colores.
+`PIHOLE_PASSWORD`, `COLLECTION_DEVICES`, `SCREEN_W/H`, `REFRESH_MS`, `SCAN_INTERVAL_S`.
 
 **`db.py`** — cliente MongoDB singleton thread-safe.
 - `get_client()` → `MongoClient` (singleton)
@@ -107,7 +109,7 @@ Expone constantes: `MONGO_URI`, `DB_SCANNER`, `DB_PIHOLE`, `PIHOLE_HOST`,
 - `list_devices()` → lista de `{mac, name}`
 - `resolve_names([mac, ...])` → `{mac: name}` en una sola query
 
-**`widgets.py`** — componentes tkinter para pantalla 480×320, tema oscuro.
+**`widgets.py`** — componentes tkinter para pantalla 480×320.
 - `StatCard(parent, label, color)` — tarjeta con valor grande
 - `BarChart(parent, width, height)` — gráfica de barras apiladas sobre Canvas
 - `DeviceList(parent)` — lista compacta primary/secondary
@@ -126,7 +128,7 @@ PIHOLE_HOST=192.168.0.108
 PIHOLE_PORT=80
 PIHOLE_PASSWORD=tu_password
 NETWORK_SUBNET=192.168.0.0/24
-SCAN_INTERVAL_S=120
+SCAN_INTERVAL_S=15
 SCREEN_W=480
 SCREEN_H=320
 REFRESH_MS=30000
@@ -140,29 +142,55 @@ REFRESH_MS=30000
 Corre `scan_network.sh` (arp-scan) cada `SCAN_INTERVAL_S` segundos y guarda
 en `scanner.scans`. Usa upsert por MAC — siempre refleja el estado más reciente.
 
-**Notas importantes:**
-- El servicio systemd corre como `root` porque `arp-scan` requiere privilegios.
-- El `PYTHONPATH` debe incluir la ruta de `rpi-core` y de los paquetes del usuario.
+El servicio corre como usuario normal (no root). `arp-scan` obtiene los privilegios
+de red necesarios mediante Linux capabilities, sin necesidad de sudo.
+
+El intervalo se relee del `.env` en cada ciclo — si se cambia desde la GUI,
+el collector lo aplica automáticamente en el próximo scan sin necesidad de reiniciarse.
 
 ### scan_network.sh
-Script bash que ejecuta `arp-scan --localnet`, detecta la interfaz activa
-automáticamente y devuelve JSON con `{ip, mac, vendor, ping_ms}`.
+Script bash que ejecuta `arp-scan`, detecta la interfaz activa automáticamente
+y devuelve JSON con `{ip, mac, vendor, ping_ms}`. No usa sudo.
+
+### repository.py (GUI)
+Capa de lectura entre la GUI y MongoDB. Lee `scanner.scans` para obtener los
+dispositivos detectados por el collector. La GUI nunca ejecuta scans directamente.
+
+### GUI (main.py)
+- Muestra todos los dispositivos que el collector ha detectado, marcando como
+  offline los que no se han visto en los últimos 5 minutos.
+- El botón **Scan** refresca la lectura desde MongoDB inmediatamente.
+- El campo **Refresco** en configuración actualiza `SCAN_INTERVAL_S` en el `.env`
+  de rpi-core. El collector lo aplica en el próximo ciclo sin reiniciarse.
+- Los dispositivos pueden renombrarse y eliminarse desde la GUI.
 
 ### Servicio systemd: network-collector.service
+
+> **Antes de copiar el service file, editar las siguientes líneas:**
+> - `User=` → tu usuario del sistema (ej: `gurthbrannon`)
+> - `WorkingDirectory=` → ruta absoluta a la carpeta `network-monitor`
+> - `ExecStart=` → ruta absoluta a `collector.py`
+> - `Environment=PYTHONPATH=` → ruta a `rpi-core` y a los paquetes del usuario
 
 ```ini
 [Unit]
 Description=Network monitor collector (arp-scan)
 After=network-online.target mongod.service
+Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
-WorkingDirectory=/home/username/rasphole/Source/network-monitor
-ExecStart=/usr/bin/python3 /home/username/rasphole/Source/network-monitor/collector.py
-Environment=PYTHONPATH=/home/username/rasphole/Source/rpi-core:/home/username/.local/lib/python3.13/site-packages
+User=tu_usuario
+WorkingDirectory=/home/tu_usuario/rasphole/Source/network-monitor
+ExecStart=/usr/bin/python3 /home/tu_usuario/rasphole/Source/network-monitor/collector.py
 Restart=always
 RestartSec=15
+Environment=PYTHONPATH=/home/tu_usuario/rasphole/Source/rpi-core:/home/tu_usuario/.local/lib/python3.13/site-packages
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
 ```
 
 ---
@@ -203,9 +231,8 @@ Sincroniza nombres de dispositivos desde MongoDB hacia Pi-hole.
 - `python sync.py` — corre una vez y sale
 - `python sync.py --watch` — loop cada 5 minutos
 
-**Limitación conocida:** Solo sincroniza dispositivos que aparecen en `scanner.scans`
-(es decir, que fueron vistos en un scan reciente). Dispositivos apagados se sincronizan
-la próxima vez que el network-collector los detecte.
+**Limitación conocida:** Solo sincroniza dispositivos que aparecen en `scanner.scans`.
+Dispositivos apagados se sincronizan la próxima vez que el collector los detecte.
 
 ### gui.py
 Interfaz tkinter 480×280. Se refresca cada `REFRESH_MS` (30s por defecto).
@@ -220,22 +247,52 @@ Layout:
 
 ### Servicios systemd
 
+> **Antes de copiar cada service file, editar:**
+> - `User=` → tu usuario del sistema
+> - `WorkingDirectory=` → ruta absoluta a la carpeta `pihole-monitor`
+> - `ExecStart=` → ruta absoluta al script correspondiente
+> - `Environment=PYTHONPATH=` → ruta a `rpi-core` y paquetes del usuario
+
 **pihole-collector.service:**
 ```ini
+[Unit]
+Description=Pi-hole data collector
+After=network-online.target mongod.service
+Wants=network-online.target
+
 [Service]
-User=username
-WorkingDirectory=/home/username/rasphole/Source/pihole-monitor
-ExecStart=/usr/bin/python3 /home/username/rasphole/Source/pihole-monitor/collector.py
-Environment=PYTHONPATH=/home/username/rasphole/Source/rpi-core:/home/username/.local/lib/python3.13/site-packages
+Type=simple
+User=tu_usuario
+WorkingDirectory=/home/tu_usuario/rasphole/Source/pihole-monitor
+ExecStart=/usr/bin/python3 /home/tu_usuario/rasphole/Source/pihole-monitor/collector.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
 ```
 
 **pihole-sync.service:**
 ```ini
+[Unit]
+Description=Pi-hole device name sync
+After=network-online.target mongod.service pihole-collector.service
+Wants=network-online.target
+
 [Service]
-User=username
-WorkingDirectory=/home/username/rasphole/Source/pihole-monitor
-ExecStart=/usr/bin/python3 /home/username/rasphole/Source/pihole-monitor/sync.py --watch
-Environment=PYTHONPATH=/home/username/rasphole/Source/rpi-core:/home/username/.local/lib/python3.13/site-packages
+Type=simple
+User=tu_usuario
+WorkingDirectory=/home/tu_usuario/rasphole/Source/pihole-monitor
+ExecStart=/usr/bin/python3 /home/tu_usuario/rasphole/Source/pihole-monitor/sync.py --watch
+Restart=always
+RestartSec=15
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
 ```
 
 ---
@@ -248,33 +305,40 @@ cd ~/rasphole/Source
 pip3 install -e rpi-core/ --break-system-packages
 
 # 2. Configurar variables de entorno
-cp rpi-core/.env.example .env
-nano .env   # ajustar PIHOLE_PASSWORD y demás valores
+cp rpi-core/.env.example rpi-core/.env
+nano rpi-core/.env   # ajustar PIHOLE_PASSWORD, MONGO_URI y demás valores
 
 # 3. Verificar conexión
 python3 rpi-core/check.py
 
-# 4. Instalar servicios systemd
+# 4. Dar privilegios de red a arp-scan (reemplaza el uso de sudo/root)
+sudo setcap cap_net_raw,cap_net_admin=eip /usr/sbin/arp-scan
+# Verificar:
+getcap /usr/sbin/arp-scan
+# Debe mostrar: /usr/sbin/arp-scan cap_net_admin,cap_net_raw=eip
+
+# 5. Editar los service files con tus rutas antes de copiarlos
+nano network-monitor/network-collector.service
+nano pihole-monitor/pihole-collector.service
+nano pihole-monitor/pihole-sync.service
+
+# 6. Instalar servicios systemd
 sudo cp network-monitor/network-collector.service /etc/systemd/system/
 sudo cp pihole-monitor/pihole-collector.service   /etc/systemd/system/
 sudo cp pihole-monitor/pihole-sync.service        /etc/systemd/system/
 
-# Editar cada service file con rutas y PYTHONPATH correctos
-sudo nano /etc/systemd/system/network-collector.service
-sudo nano /etc/systemd/system/pihole-collector.service
-sudo nano /etc/systemd/system/pihole-sync.service
-
 sudo systemctl daemon-reload
 sudo systemctl enable --now network-collector pihole-collector pihole-sync
 
-# 5. Esperar ~2 min a que el network-collector llene scanner.scans
+# 7. Esperar ~30s a que el network-collector llene scanner.scans
 # Verificar:
 mongosh scanner --eval "db.scans.find().pretty()"
 
-# 6. Correr sync una vez para registrar dispositivos en Pi-hole
+# 8. Correr sync una vez para registrar dispositivos en Pi-hole
 python3 ~/rasphole/Source/pihole-monitor/sync.py
 
-# 7. Lanzar GUI
+# 9. Lanzar GUIs
+DISPLAY=:0 python3 ~/rasphole/Source/network-monitor/main.py
 DISPLAY=:0 python3 ~/rasphole/Source/pihole-monitor/gui.py
 ```
 
@@ -289,9 +353,12 @@ journalctl -u pihole-collector  -f
 journalctl -u pihole-sync       -f
 
 # Verificar datos en Mongo
-mongosh scanner  --eval "db.scans.find().pretty()"
+mongosh scanner   --eval "db.scans.find().pretty()"
 mongosh pihole_db --eval "db.stats.findOne()"
 mongosh pihole_db --eval "db.top_clients.findOne()"
+
+# Verificar capabilities de arp-scan
+getcap /usr/sbin/arp-scan
 
 # Probar API de Pi-hole manualmente
 curl -s -X POST http://192.168.0.108/api/auth \
@@ -310,10 +377,14 @@ curl -s -X POST http://192.168.0.108/api/auth \
   en lugar de la IP. Flujo: `ip → mac (scanner.scans) → name (scanner.dispositivos)`.
 - **IP estática en Raspberry** ✅ — configurada via NetworkManager, independiente de DHCP.
 - **Reservas DHCP en Pi-hole** ✅ — RaspberryPi `.108` y MyPC `.101` con lease infinito.
+- **network-collector sin root** ✅ — corre como usuario normal usando Linux capabilities
+  en `arp-scan`. No requiere sudo ni reglas especiales en sudoers.
+- **Intervalo de scan hot-reload** ✅ — el collector relee `SCAN_INTERVAL_S` del `.env`
+  en cada ciclo. Cambiar el intervalo desde la GUI se aplica sin reiniciar el servicio.
+- **GUI network-monitor con servicio** ✅ — la GUI lee de `scanner.scans` en lugar de
+  ejecutar scans directamente.
 
 ## Pendiente
 
 - **Autoarranque de la GUI** al iniciar la Raspberry: configurar con `@reboot` en
-  crontab o un servicio systemd con `DISPLAY=:0`
-- **GUI del network-monitor**: no aplica — ya existe una app funcional desarrollada
-  en sesiones anteriores
+  crontab o un servicio systemd con `DISPLAY=:0`.
