@@ -123,12 +123,21 @@ def get_top_clients(limit: int = 5) -> list[dict]:
     macs     = list(ip_to_mac.values())
     name_map = resolve_names(macs) if macs else {}
 
+    # IPs activas en Pi-hole en los últimos 5 min (guardadas por el collector)
+    active_doc = get_collection("pihole_db", "active_clients").find_one({"_id": "current"})
+    active_ips = set(active_doc.get("ips", [])) if active_doc else set()
+
     result = []
     for item in items:
         ip   = item["ip"].split("|")[0]
         mac  = ip_to_mac.get(ip)
         name = name_map.get(mac, ip) if mac else ip
-        result.append({"ip": ip, "name": name, "count": item["count"]})
+        result.append({
+            "ip":     ip,
+            "name":   name,
+            "count":  item["count"],
+            "online": ip in active_ips,
+        })
 
     return result
 

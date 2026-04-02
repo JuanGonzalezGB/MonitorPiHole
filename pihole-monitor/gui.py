@@ -23,8 +23,6 @@ import repository as repo
 _PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-# ── ScrollFrame ───────────────────────────────────────────────────────────────
-
 class ScrollFrame(tk.Frame):
     def __init__(self, parent, bg, bg_rol=ROL_BG2):
         super().__init__(parent, bg=bg)
@@ -70,10 +68,8 @@ class ScrollFrameXY(ScrollFrame):
         self._hbar.pack(in_=self, side="top", fill="x", before=self.canvas)
 
     def _on_canvas_configure(self, event):
-        pass   # no forzar ancho → permite scroll horizontal
+        pass
 
-
-# ── Widgets temizables ────────────────────────────────────────────────────────
 
 class StatCard(tk.Frame):
     def __init__(self, parent, label: str, estilo, val_rol: str, **kwargs):
@@ -114,6 +110,16 @@ class DeviceList(tk.Frame):
             row = tk.Frame(self, bg=self._estilo.bg2)
             etiquetar(row, ROL_BG2)
             row.pack(fill="x", padx=8, pady=1)
+
+            # bolita de estado opcional
+            dot_color = item.get("dot_color")
+            if dot_color:
+                dot = tk.Canvas(row, width=8, height=8,
+                                bg=self._estilo.bg2, highlightthickness=0)
+                etiquetar(dot, ROL_BG2)
+                dot.create_oval(1, 1, 7, 7, fill=dot_color, outline="")
+                dot.pack(side="left", padx=(0, 4))
+
             lp = tk.Label(row, text=item.get("primary", ""),
                           bg=self._estilo.bg2, fg=self._estilo.color3,
                           font=("monospace", 8), anchor="w")
@@ -126,7 +132,7 @@ class DeviceList(tk.Frame):
             ls.pack(side="right")
             self._rows.append(row)
 
-    def update_estilo(self, estilo): 
+    def update_estilo(self, estilo):
         self._estilo = estilo
         for row in self._rows:
             row.config(bg=estilo.bg2)
@@ -178,7 +184,6 @@ class TopBar(tk.Frame):
         etiquetar(self._ts_lbl, ROL_BG2, ROL_MUTED)
         self._ts_lbl.pack(side="right", padx=10)
 
-        # Botón de temas
         self._btn_tema = tk.Button(
             self, text="◑", bg=estilo.bg2, fg=estilo.color1,
             relief="flat", bd=0, cursor="hand2",
@@ -195,16 +200,13 @@ class TopBar(tk.Frame):
         self._ts_var.set(datetime.now().strftime("%H:%M:%S"))
 
 
-# ── App principal ─────────────────────────────────────────────────────────────
-
 class PiholeMonitorApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        # ── Tema ──────────────────────────────────────────────────────────────
         self._cfg_tema  = ConfigTema(_PROJECT_DIR)
         self.estilo     = EstiloFactory.definirEstilo(self._cfg_tema.get_tema())
-        self._ttk_style = None   # no usamos ttk
+        self._ttk_style = None
 
         self.title("Pi-hole monitor")
         self.geometry("480x260")
@@ -213,14 +215,9 @@ class PiholeMonitorApp(tk.Tk):
         self.overrideredirect(False)
 
         self._build_ui()
-
-        # Instanciar controlador DESPUÉS de build_ui
         self._controlador_temas = ControladorTemas(self)
         self.topbar.set_theme_command(self._open_themes)
-
         self._refresh()
-
-    # ── Contrato requerido por ControladorTemas ───────────────────────────────
 
     def apply_estilo(self, nuevo_estilo) -> None:
         self.estilo = nuevo_estilo
@@ -230,17 +227,12 @@ class PiholeMonitorApp(tk.Tk):
         self.status_dot.refresh_dot(nuevo_estilo)
         self.chart.config(bg=nuevo_estilo.bg2)
         self.chart.set_label_color(nuevo_estilo.muted)
-        
-        # Actualizar colores de los círculos de la leyenda
         if hasattr(self, 'legend_dots'):
             colors = [nuevo_estilo.colorok, nuevo_estilo.colorbad]
             for dot, color in zip(self.legend_dots, colors):
                 dot.delete("all")
                 dot.create_oval(1, 1, 7, 7, fill=color, outline="")
-        
         self._update_chart()
-
-    # ── UI ────────────────────────────────────────────────────────────────────
 
     def _build_ui(self):
         e = self.estilo
@@ -249,7 +241,6 @@ class PiholeMonitorApp(tk.Tk):
         self.topbar.pack(fill="x", side="top")
         self._sep(self, e)
 
-        # Stats
         stats_row = tk.Frame(self, bg=e.bg)
         etiquetar(stats_row, ROL_BG)
         stats_row.pack(fill="x", padx=4, pady=(4, 0))
@@ -265,7 +256,6 @@ class PiholeMonitorApp(tk.Tk):
 
         self._sep(self, e)
 
-        # Footer
         bottom_bar = tk.Frame(self, bg=e.bg, height=20)
         etiquetar(bottom_bar, ROL_BG)
         bottom_bar.pack(fill="x", side="bottom")
@@ -274,17 +264,15 @@ class PiholeMonitorApp(tk.Tk):
         self.status_dot = StatusDot(bottom_bar, label="Pi-hole", estilo=e)
         self.status_dot.pack(side="right", padx=8)
 
-        self._ts_label = tk.Label(bottom_bar, text="",
-                                  bg=e.bg, fg=e.muted, font=("monospace", 7))
+        self._ts_label = tk.Label(bottom_bar, text="", bg=e.bg, fg=e.muted,
+                                  font=("monospace", 7))
         etiquetar(self._ts_label, ROL_BG, ROL_MUTED)
         self._ts_label.pack(side="left", padx=8)
 
-        # Body
         body = tk.Frame(self, bg=e.bg)
         etiquetar(body, ROL_BG)
         body.pack(fill="both", padx=4, pady=4)
 
-        # Columna izquierda
         left = tk.Frame(body, bg=e.bg2, width=190)
         etiquetar(left, ROL_BG2)
         left.pack(side="left", fill="y", padx=(0, 3))
@@ -322,7 +310,6 @@ class PiholeMonitorApp(tk.Tk):
         self.clients_list = DeviceList(client_scroll.inner, estilo=e)
         self.clients_list.pack(fill="x")
 
-        # Columna derecha
         right = tk.Frame(body, bg=e.bg2)
         etiquetar(right, ROL_BG2)
         right.pack(side="left", fill="both", expand=True)
@@ -343,7 +330,6 @@ class PiholeMonitorApp(tk.Tk):
         etiquetar(legend, ROL_BG2)
         legend.pack(anchor="w", padx=8)
 
-        # Guardar referencias a los círculos de la leyenda
         self.legend_dots = []
         for color_attr, label in ((e.colorok, "permitidas"), (e.colorbad, "bloqueadas")):
             dot = tk.Canvas(legend, width=8, height=8,
@@ -352,13 +338,10 @@ class PiholeMonitorApp(tk.Tk):
             dot.create_oval(1, 1, 7, 7, fill=color_attr, outline="")
             dot.pack(side="left", padx=(0, 2))
             self.legend_dots.append(dot)
-            
             lbl = tk.Label(legend, text=label, bg=e.bg2, fg=e.muted,
                            font=("monospace", 7))
             etiquetar(lbl, ROL_BG2, ROL_MUTED)
             lbl.pack(side="left", padx=(0, 8))
-
-    # ── Refresh ───────────────────────────────────────────────────────────────
 
     def _refresh(self):
         try:
@@ -374,7 +357,6 @@ class PiholeMonitorApp(tk.Tk):
             self.after(REFRESH_MS, self._refresh)
 
     def _update_stats(self):
-        s = self.estilo
         data = repo.get_latest_stats()
         self.card_queries.set_value(f"{data['queries_today']:,}")
         self.card_blocked.set_value(f"{data['blocked_today']:,}")
@@ -382,7 +364,7 @@ class PiholeMonitorApp(tk.Tk):
         d = data["domains_blocklist"]
         self.card_domains.set_value(f"{d // 1000}k" if d >= 1000 else str(d))
         self.status_dot.set_status(data.get("status") == "enabled")
-        self.status_dot.refresh_dot(s)
+        self.status_dot.refresh_dot(self.estilo)
 
     def _update_top_blocked(self):
         items = repo.get_top_blocked(limit=5)
@@ -394,7 +376,11 @@ class PiholeMonitorApp(tk.Tk):
     def _update_clients(self):
         clients = repo.get_top_clients(limit=4)
         self.clients_list.set_items([
-            {"primary": _truncate(c["name"], 18), "secondary": str(c["count"])}
+            {
+                "primary":   _truncate(c["name"], 18),
+                "secondary": str(c["count"]),
+                "dot_color": self.estilo.colorok if c.get("online") else self.estilo.colorbad,
+            }
             for c in clients
         ])
 

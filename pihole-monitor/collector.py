@@ -187,7 +187,33 @@ def save_history(data: dict) -> None:
     log.info(f"history: {len(hourly)} buckets horarios guardados")
 
 
-def ensure_indexes() -> None:
+def save_active_clients(data: dict) -> None:
+    """
+    Extrae IPs únicas que hicieron queries en los últimos 5 minutos
+    y las guarda en pihole_db.active_clients (documento único).
+    """
+    queries = data.get("queries", [])
+    if not queries:
+        return
+
+    cutoff = datetime.now(timezone.utc).timestamp() - 300  # 5 minutos
+    active_ips = set()
+    for q in queries:
+        if q.get("time", 0) >= cutoff:
+            ip = q.get("client", {}).get("ip")
+            if ip and ip not in {"127.0.0.1", "::1"}:
+                active_ips.add(ip)
+
+    _col("active_clients").replace_one(
+        {"_id": "current"},
+        {
+            "_id":        "current",
+            "updated_at": datetime.now(timezone.utc),
+            "ips":        list(active_ips),
+        },
+        upsert=True,
+    )
+    log.info(f"active_clients: {len(active_ips)} activos en últimos 5min")
     _col("stats").create_index("timestamp", expireAfterSeconds=172800)  # TTL 48h
     _col("history").create_index("hour")
     log.info("índices verificados")
@@ -216,6 +242,9 @@ def run() -> None:
                 save_snapshot(summary)
                 save_top_clients(
                     session.get("stats/top_clients", params={"count": 10}) or {}
+                )
+                save_active_clients(
+                    session.get("queries/clients", params={"max": 500}) or {}
                 )
                 if datetime.now().minute % 5 == 0:
                     save_top_blocked(
