@@ -101,7 +101,7 @@ def _col(name: str):
     return get_collection("pihole_db", name)
 
 
-def save_snapshot(summary: dict) -> None:
+def save_snapshot(summary: dict, blocking: str = "unknown") -> None:
     now    = datetime.now(timezone.utc)
     minute = now.replace(second=0, microsecond=0)
 
@@ -118,6 +118,7 @@ def save_snapshot(summary: dict) -> None:
         "active_clients":    c.get("active", 0),
         "cached":            q.get("cached", 0),
         "forwarded":         q.get("forwarded", 0),
+        "status":            blocking,
     }
 
     _col("stats").update_one(
@@ -128,7 +129,7 @@ def save_snapshot(summary: dict) -> None:
     log.info(
         f"snapshot — total: {doc['queries_today']} "
         f"bloqueadas: {doc['blocked_today']} ({doc['percent_blocked']}%) "
-        f"clientes activos: {doc['active_clients']}"
+        f"status: {blocking}"
     )
 
 
@@ -239,7 +240,9 @@ def run() -> None:
         try:
             summary = session.get("stats/summary")
             if summary:
-                save_snapshot(summary)
+                blocking_data = session.get("dns/blocking") or {}
+                blocking      = blocking_data.get("blocking", "unknown")
+                save_snapshot(summary, blocking)
                 save_top_clients(
                     session.get("stats/top_clients", params={"count": 10}) or {}
                 )
