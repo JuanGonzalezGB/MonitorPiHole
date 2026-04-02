@@ -162,3 +162,6 @@ def run() -> None:
             log.error(f"error inesperado: {e}", exc_info=True)
         log.info(f"próximo scan en {interval}s")
         time.sleep(interval)
+        
+if __name__ == "__main__":
+    run()
