@@ -197,7 +197,7 @@ def save_active_clients(data: dict) -> None:
     if not queries:
         return
 
-    cutoff = datetime.now(timezone.utc).timestamp() - 120
+    cutoff = datetime.now(timezone.utc).timestamp() - 60
     active_ips = set()
     for q in queries:
         if q.get("time", 0) >= cutoff:
@@ -214,7 +214,7 @@ def save_active_clients(data: dict) -> None:
         },
         upsert=True,
     )
-    log.info(f"active_clients: {len(active_ips)} activos en últimos 2 min")
+    log.info(f"active_clients: {len(active_ips)} activos en último min")
 
 
 def ensure_indexes() -> None:
