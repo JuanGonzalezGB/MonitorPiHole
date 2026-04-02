@@ -214,7 +214,7 @@ def save_active_clients(data: dict) -> None:
         },
         upsert=True,
     )
-    log.info(f"active_clients: {len(active_ips)} activos en últimos 5min")
+    log.info(f"active_clients: {len(active_ips)} activos en últimos 2 min")
 
 
 def ensure_indexes() -> None:
