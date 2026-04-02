@@ -5,9 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
-WorkingDirectory=/home/gurthbrannon/rasphole/Source/network-monitor
-ExecStart=/usr/bin/python3 /home/gurthbrannon/rasphole/Source/network-monitor/collector.py
+User=username
+WorkingDirectory=/home/username/MonitorPihole/network-monitor
+ExecStart=/usr/bin/python3 /home/username/MonitorPiHole/network-monitor/collector.py
 Restart=always
 RestartSec=15
 
