@@ -197,7 +197,7 @@ def save_active_clients(data: dict) -> None:
     if not queries:
         return
 
-    cutoff = datetime.now(timezone.utc).timestamp() - 90
+    cutoff = datetime.now(timezone.utc).timestamp() - 120
     active_ips = set()
     for q in queries:
         if q.get("time", 0) >= cutoff:
