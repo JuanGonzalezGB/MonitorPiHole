@@ -31,17 +31,19 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# Cargar .env
+# Cargar .env y guardar su ruta para releerlo en el loop
+_env_file: Path | None = None
 _env_path = Path(__file__).resolve()
 for _ in range(6):
     candidate = _env_path.parent / ".env"
     if candidate.exists():
         load_dotenv(candidate)
+        _env_file = candidate
         break
     _env_path = _env_path.parent
 
-SUBNET:   str = os.getenv("NETWORK_SUBNET", "192.168.0.0/24")
-INTERVAL: int = int(os.getenv("SCAN_INTERVAL_S", "120"))  # 2 min por defecto
+SUBNET: str = os.getenv("NETWORK_SUBNET", "192.168.0.0/24")
+# INTERVAL ya no se lee aquí — se relee en cada ciclo desde _read_interval()
 
 _SCRIPT = Path(__file__).parent / "scan_network.sh"
 
@@ -123,8 +125,26 @@ def ensure_indexes() -> None:
 
 # ── Loop principal ────────────────────────────────────────────────────────────
 
+# Guardar la ruta del .env encontrado para releerlo en el loop
+_env_file: Path | None = None
+_search = Path(__file__).resolve()
+for _ in range(6):
+    candidate = _search.parent / ".env"
+    if candidate.exists():
+        _env_file = candidate
+        break
+    _search = _search.parent
+
+
+def _read_interval() -> int:
+    """Relee SCAN_INTERVAL_S del .env en cada ciclo."""
+    if _env_file:
+        load_dotenv(_env_file, override=True)
+    return int(os.getenv("SCAN_INTERVAL_S", "120"))
+
+
 def run() -> None:
-    log.info(f"network collector arrancado — subnet: {SUBNET} — intervalo: {INTERVAL}s")
+    log.info(f"network collector arrancado — subnet: {SUBNET}")
 
     if not ping():
         log.error("MongoDB no responde — abortando")
@@ -133,14 +153,12 @@ def run() -> None:
     ensure_indexes()
 
     while True:
+        interval = _read_interval()
         try:
             devices = run_scan()
             if devices:
                 save_scan(devices)
         except Exception as e:
             log.error(f"error inesperado: {e}", exc_info=True)
-        time.sleep(INTERVAL)
-
-
-if __name__ == "__main__":
-    run()
+        log.info(f"próximo scan en {interval}s")
+        time.sleep(interval)

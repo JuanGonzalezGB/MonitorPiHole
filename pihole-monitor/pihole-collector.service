@@ -6,8 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=pi
-WorkingDirectory=/home/pi/rpi-projects/pihole-monitor
-ExecStart=/usr/bin/python3 /home/pi/rpi-projects/pihole-monitor/collector.py
+WorkingDirectory=/home/pi/MonitorPiHole/pihole-monitor
+ExecStart=/usr/bin/python3 /home/pi/MonitorPiHole/pihole-monitor/collector.py
 Restart=always
 RestartSec=10
 

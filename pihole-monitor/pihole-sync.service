@@ -6,8 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=pi
-WorkingDirectory=/home/pi/rpi-projects/pihole-monitor
-ExecStart=/usr/bin/python3 /home/pi/rpi-projects/pihole-monitor/sync.py --watch
+WorkingDirectory=/home/pi/MonitorPihole/pihole-monitor
+ExecStart=/usr/bin/python3 /home/pi/MonitorPiHole/pihole-monitor/sync.py --watch
 Restart=always
 RestartSec=15
 
