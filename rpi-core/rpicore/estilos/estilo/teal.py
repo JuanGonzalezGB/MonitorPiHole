@@ -1,39 +1,35 @@
-from rpicore.estilos.estilo.estilizador import Estilo
+from estilo.estilizador import Estilo
 
 
 class TealColor(Estilo):
     def __init__(self):
         self.nombre = "teal_dark"
 
-        self.bg      = "#050b0c"
-        self.bg2     = "#071416"
-        self.border  = "#0f2a2f"
+        self.bg = "#050b0c"        # negro azulado profundo
+        self.bg2 = "#071416"       # fondo secundario más visible
+        self.border = "#0f2a2f"    # bordes teal oscuros
 
-        # equivalencias semánticas
-        self.colorok   = "#2ee6c5"
-        self.colormid  = "#1faf7f"
-        self.colorbad  = "#6063a6"
+        self.green = "#2ee6c5"     # good (turquesa vivo pero controlado)
+        self.orange = "#2377c5"    # mid (teal más suave / aqua warning)
+        self.red = "#686dc5"       # bad (teal profundo más “serio”)
 
-        self.color1 = "#7fffd4"
-        self.color2 = "#38b6ff"
-        self.color3 = "#d9f7f3"
+        self.cyan = "#7fffd4"      # acento aqua brillante
+        self.blue = "#38b6ff"      # azul frío que combina con teal
 
-        self.muted  = "#2a4a4f"
-        self.boton  = "#06191c"
+        self.white = "#d9f7f3"     # texto claro con tinte frío
+        self.muted = "#2a4a4f"     # texto apagado verde-azulado
 
-    def colorBg(self):       return self.bg
-    def colorBg2(self):      return self.bg2
-    def colorBorder(self):   return self.border
+        self.boton = "#06191c"     # botones oscuros con tono marino
 
-    def colorColorOk(self):  return self.colorok
-    def colorColorMid(self): return self.colormid
-    def colorColorBad(self): return self.colorbad
-
-    def colorColor1(self):   return self.color1
-    def colorColor2(self):   return self.color2
-    def colorColor3(self):   return self.color3
-
-    def colorMuted(self):    return self.muted
-    def colorBoton(self):    return self.boton
-
-    def getNombre(self):     return self.nombre
+    def colorBg(self):     return self.bg
+    def colorBg2(self):    return self.bg2
+    def colorBorder(self): return self.border
+    def colorGreen(self):  return self.green
+    def colorOrange(self): return self.orange
+    def colorRed(self):    return self.red
+    def colorCyan(self):   return self.cyan
+    def colorBlue(self):   return self.blue
+    def colorWhite(self):  return self.white
+    def colorMuted(self):  return self.muted
+    def colorBoton(self):  return self.boton
+    def getNombre(self):   return self.nombre
