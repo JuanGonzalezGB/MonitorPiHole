@@ -8,9 +8,9 @@ class TealColor(Estilo):
         self.bg2 = "#071416"       # fondo secundario más visible
         self.border = "#0f2a2f"    # bordes teal oscuros
 
-        self.ok = "#2ee6c5"     # good (turquesa vivo pero controlado)
-        self.mid = "#2377c5"    # mid (teal más suave / aqua warning)
-        self.bad = "#686dc5"       # bad (teal profundo más “serio”)
+        self.colorok = "#2ee6c5"     # good (turquesa vivo pero controlado)
+        self.colormid = "#2377c5"    # mid (teal más suave / aqua warning)
+        self.colorbad = "#686dc5"       # bad (teal profundo más “serio”)
 
         self.color1 = "#7fffd4"      # acento aqua brillante
         self.color2 = "#38b6ff"      # azul frío que combina con teal
