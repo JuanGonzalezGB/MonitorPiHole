@@ -8,14 +8,14 @@ class TealColor(Estilo):
         self.bg2 = "#071416"       # fondo secundario más visible
         self.border = "#0f2a2f"    # bordes teal oscuros
 
-        self.green = "#2ee6c5"     # good (turquesa vivo pero controlado)
-        self.orange = "#2377c5"    # mid (teal más suave / aqua warning)
-        self.red = "#686dc5"       # bad (teal profundo más “serio”)
+        self.ok = "#2ee6c5"     # good (turquesa vivo pero controlado)
+        self.mid = "#2377c5"    # mid (teal más suave / aqua warning)
+        self.bad = "#686dc5"       # bad (teal profundo más “serio”)
 
-        self.cyan = "#7fffd4"      # acento aqua brillante
-        self.blue = "#38b6ff"      # azul frío que combina con teal
+        self.color1 = "#7fffd4"      # acento aqua brillante
+        self.color2 = "#38b6ff"      # azul frío que combina con teal
+        self.color3 = "#d9f7f3"     # texto claro con tinte frío
 
-        self.white = "#d9f7f3"     # texto claro con tinte frío
         self.muted = "#2a4a4f"     # texto apagado verde-azulado
 
         self.boton = "#06191c"     # botones oscuros con tono marino
