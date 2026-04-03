@@ -1,5 +1,4 @@
-from estilo.estilizador import Estilo
-
+from rpicore.estilos.estilo.estilizador import Estilo
 
 class TealColor(Estilo):
     def __init__(self):

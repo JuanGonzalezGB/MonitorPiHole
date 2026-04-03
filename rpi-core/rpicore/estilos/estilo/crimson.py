@@ -1,4 +1,4 @@
-from estilo.estilizador import Estilo
+from rpicore.estilos.estilo.estilizador import Estilo
 
 class CrimsonColor(Estilo):
     def __init__(self):     
